@@ -6,6 +6,35 @@ from time import strftime #gets system's time
 from datetime import datetime
 
 
+# programable paramters [1=lower limit, 2=nominal, 3=upper limit, 4=temporary paramater, 5=permanent parameter]
+Lower_Rate_Limit = [30,60,175,60,60] #ppm
+Upper_Rate_Limit = [50,120,175,120,120] #ppm
+Atrial_Amplitude = [0.5,3.5,7.0,3.5,3.5] #V
+Atrial_Pules_Width = [0.05,0.4,1.9,0.4,0.4] #ms
+Ventricular_Amplitude = [0.5,3.5,7.0,3.5,3.5] #V
+Ventricular_Pulse_Width = [0.05,0.4,1.9,0.4,0.4] #ms
+VRP = [150,320,500,320,320] #ms
+ARP = [150,250,500,250,250] #ms
+
+# Const 
+Modes = ["Off", "AOO","VOO", "AAI", "VVI"]
+Programable_Paramters = ["Lower Rate Limit", "Upper Rate Limit", "Atrial Amplitude","Atrial Pules Width",
+                         "Ventricular Amplitude", "Ventricular Pulse Width", "VRP", "ARP"]
+Mode_Parameters = [[False,False,False,False,False,False,False,False],
+                   [True,True,True,True,False,False,False,False],
+                   [True,True,False,False,True,True,False,False],
+                   [True,True,True,True,False,False,False,True],
+                   [True,True,False,False,True,True,True,False]]
+
+
+
+
+
+
+
+
+
+
 ###############################MAIN_WINDOW#######################################################
 
 root = tk.Tk(); #initializes main window
@@ -80,40 +109,120 @@ def select_mode(event):
 
     selected_mode = combo_box.get();
     label.config(text = "Selected Mode: " + selected_mode);
+    parameters(selected_mode);
+
+
+
+
 
 root.title("Modes");
 
 label = tk.Label(root, text = "Selected Mode: ");
-label.pack(pady = 5);
+label.pack(pady = 50);
 
 
-combo_box = ttk.Combobox(root, values = ["AOO", "VOO", "AAI", "VVI"], state = 'readonly');
+combo_box = ttk.Combobox(root, values = Modes, state = 'readonly');
 combo_box.pack(pady = 10);
 
-combo_box.set("AOO"); #default state
 
-combo_box.bind("<<ComboboxSelected>>", select_mode);
+
+
+combo_box.set("Off"); #default state
+combo_box.bind("<<ComboboxSelected>>", select_mode); #allows user to select mode
+
+
+#LowerRateLimit
+label_LowerRateLimit = Label(root, text = Programable_Paramters[0]); 
+s_LowerRateLimit = Scale(root, from_=0, to=100, orient = HORIZONTAL); #creates scale from 0 to 100
+
+#UpperRateLimit
+label_UpperRateLimit = Label(root, text = Programable_Paramters[1]); 
+s_UpperRateLimit = Scale(root, from_=0, to=100, orient = HORIZONTAL); #creates scale from 0 to 100
+
+
+#AtrialAmplitude
+label_AtrialAmplitude = Label(root, text = Programable_Paramters[2]); 
+s_AtrialAmplitude = Scale(root, from_=0, to=100, orient = HORIZONTAL); #creates scale from 0 to 100
+
+#AtrialPulesWidth
+label_AtrialPulesWidth = Label(root, text = Programable_Paramters[3]); 
+s_AtrialPulesWidth = Scale(root, from_=0, to=100, orient = HORIZONTAL); #creates scale from 0 to 100
+
+
+#VentricularAmplitude
+label_VentricularAmplitude = Label(root, text = Programable_Paramters[4]); 
+s_VentricularAmplitude = Scale(root, from_=0, to=100, orient = HORIZONTAL); #creates scale from 0 to 100
+
+#VentricularPulseWidth
+label_VentricularPulseWidth = Label(root, text = Programable_Paramters[5]); 
+s_VentricularPulseWidth = Scale(root, from_=0, to=100, orient = HORIZONTAL); #creates scale from 0 to 100
+
+#VRP
+label_VRP = Label(root, text = Programable_Paramters[6]); 
+s_VRP = Scale(root, from_=0, to=100, orient = HORIZONTAL); #creates scale from 0 to 100
+
+#ARP
+label_ARP = Label(root, text = Programable_Paramters[7]); 
+s_ARP = Scale(root, from_=0, to=100, orient = HORIZONTAL); #creates scale from 0 to 100
+
+
+
+sList = [s_LowerRateLimit, s_UpperRateLimit,s_AtrialAmplitude,s_AtrialPulesWidth,s_VentricularAmplitude,s_VentricularPulseWidth, s_VRP, s_ARP];
+
+lList = [label_LowerRateLimit, label_UpperRateLimit, label_AtrialAmplitude,label_AtrialPulesWidth,label_VentricularAmplitude, label_VentricularPulseWidth,
+         label_VRP, label_ARP];
+
+
+
 
 
 '''
-mode_AOO = IntVar();
-Checkbutton(root, text = 'AOO', variable = mode_AOO).place(x=200, y=300);
-
-mode_VOO = IntVar();
-Checkbutton(root, text = 'VOO', variable = mode_VOO).place(x=200, y=325);
-
-mode_AAI = IntVar();
-Checkbutton(root, text = 'AAI', variable = mode_AAI).place(x=200, y=350);
-
-mode_VVI = IntVar();
-Checkbutton(root, text = 'VVI', variable = mode_VVI).place(x=200, y=375);
+AOO - Lower Rate Limit, Upper Rate Limit, Atrial Amplitude, Atrial Pulse Width
+VOO - Lower Rate Limit, Upper Rate Limit,Ventricular Amplitude, Ventricular Pulse Width
+AAI - Lower Rate Limit, Upper Rate Limit, Atrial Amplitude, Atrial Pulse Width, ARP
+VVI - Lower Rate Limit, Upper Rate Limit,Ventricular Amplitude, Ventricular Pulse Width, VRP
 '''
+
+
+
+
+def parameters(selected_mode):
+
+    match selected_mode:
+
+        case "Off":
+            mode = 0
+        case "AOO":
+            mode = 1
+
+        case "VOO":
+            mode = 2
+        case "AAI":
+            mode = 3
+        case "VVI":
+            mode = 4
+
+    for i in range(8):
+        if Mode_Parameters[mode][i]:
+            sList[i].place(x=100, y=70+i*70)
+            lList[i].place(x=100, y= 50+i*70)
+
+        else:
+            sList[i].place_forget()
+            lList[i].place_forget()
+
+
+            
+    
+
+    
+
 
 
 
 #######################################SLIDER#######################################################
 
-
+'''
 label_LowerRateLimit = Label(root, text = "Lower Rate Limit").place(x=100, y= 50); 
 s = Scale(root, from_=0, to=100, orient = HORIZONTAL).place(x=100, y= 70); #creates scale from 0 to 100
 #s.pack();
@@ -138,7 +247,7 @@ s = Scale(root, from_=0, to=100, orient = HORIZONTAL).place(x=100, y= 490); #cre
 
 label_ARP = Label(root, text = "ARP").place(x=100, y= 540); 
 s = Scale(root, from_=0, to=100, orient = HORIZONTAL).place(x=100, y= 560); #creates scale from 0 to 100
-
+'''
 
 
 #########################################SAVE_BUTTON#####################################################
@@ -184,6 +293,7 @@ open_window_button.pack(pady=20);
 
 '''
 
+#############################Opens_new_screen_and_closes_old_screen############################################## 
 def successful_login(): #function
     root.destroy(); #close main window
 
@@ -194,22 +304,14 @@ def successful_login(): #function
     
     #abc = Toplevel(root);
     
-    
-    
-    
-    
-    
+        
 sucesssful_login_button = Button(root, text = "Sucessful_Login", command = successful_login).place(x=400, y=600);
 
 
-
-    
-
-    
-    
-
-
-
 root.mainloop(); #runs application
+
+
+
+
 
 
