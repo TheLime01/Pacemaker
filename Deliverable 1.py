@@ -1,6 +1,16 @@
 from tkinter import *
+import tkinter as tk
+from tkinter import ttk
+import json
+from datetime import datetime
+import subprocess
 
-############################## Setup ##############################
+############################## Variables ##############################
+
+Model_number = "ABCD"
+DCM_serial_number = "400325598"
+
+############################## Setup ##################################
 
 Window = Tk() #Initiates a window
 Window.geometry("1080x1080") #Sets size of the window
@@ -16,21 +26,49 @@ def About():
     About_window.geometry("360x180")
     About_window.title("About") #Sets title
 
-    Model_Number = Label(About_window, text = "Model Number: ABCD", font = ('Arial', 14), fg = 'black', bg = "white") #Sets text settings
+    Model_Number = Label(About_window, text = "Model Number: " + Model_number, font = ('Arial', 14), fg = 'black', bg = "white") #Sets text settings
     Model_Number.place(x=10, y=10) #Displays model number text
     Software_Revision_Number = Label(About_window, text = "Software Revision Number: Version 1.0", font = ('Arial', 14), fg = 'black', bg = "white") #Sets text settings
     Software_Revision_Number.place(x=10, y=40) #Displays software revision number text
-    DCM_Serial_Number = Label(About_window, text = "DCM Serial Number: ABCD", font = ('Arial', 14), fg = 'black', bg = "white") #Sets text settings
+    DCM_Serial_Number = Label(About_window, text = "DCM Serial Number: " + DCM_serial_number, font = ('Arial', 14), fg = 'black', bg = "white") #Sets text settings
     DCM_Serial_Number.place(x=10, y=70) #Displays DCM serial number text
     Institution_Name = Label(About_window, text = "Institution Name: McMaster University", font = ('Arial', 14), fg = 'black', bg = "white") #Sets text settings
     Institution_Name.place(x=10, y=100) #Displays institution name text
 
     About_window.mainloop() #Displays the about window
+
+def Get_input():
+    Username_input = Username_box.get()
+    Password_input = Password_box.get()
+    return Username_input, Password_input
+
+def Verify_account(username, password):
+    with open("userdata.json", "r") as file:
+        data = json.load(file) 
+    for user in data['registered users']:
+        if username.strip() == user['username'] and password.strip() == user['password']:
+            return True
+    return False
+
+def Successful_login(): #function
+    Window.destroy(); #close main window
+    login = tk.Tk();
+    login.title("My Account");
+    login.geometry("1080x1080");
+    login.mainloop();
     
 def Sign_in():
-    Sign_in_label = Label(Window, text = "Incorrect username/password", font = ('Arial', 14), fg = 'black', bg = "#CBC3E3") #Sets text settings
-    Sign_in_label.place(x=395, y=425) #Displays sign in text
-    Sign_in_label.after(3000, Sign_in_label.destroy) #Removes sign in text after some time
+    Username_input, Password_input = Get_input()
+    Verify = Verify_account(Username_input, Password_input)
+    if (Verify == True):
+        Successful_login()
+    else:
+        Sign_in_label2 = Label(Window, text = "Incorrect username/password", font = ('Arial', 14), fg = 'black', bg = "#CBC3E3") #Sets text settings
+        Sign_in_label2.place(x=495, y=425) #Displays sign in text
+    
+    #Sign_in_label = Label(Window, text = "Incorrect username/password", font = ('Arial', 14), fg = 'black', bg = "#CBC3E3") #Sets text settings
+    #Sign_in_label.place(x=395, y=425) #Displays sign in text
+    #Sign_in_label.after(3000, Sign_in_label.destroy) #Removes sign in text after some time
 
 def Sign_up():
     Sign_up_label = Label(Window, text = "Account created, sign in now", font = ('Arial', 14), fg = 'black', bg = "#CBC3E3") #Sets text settings
