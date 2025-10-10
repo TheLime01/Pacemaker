@@ -2,16 +2,25 @@ import json
 from datetime import datetime
 import subprocess
 
-# programable paramters
+# programable paramters [1=lower limit, 2=nominal, 3=upper limit, 4=temporary paramater, 5=permanent parameter]
+Lower_Rate_Limit = [30,60,175,60,60] #ppm
+Upper_Rate_Limit = [50,120,175,120,120] #ppm
+Atrial_Amplitude = [0.5,3.5,7.0,3.5,3.5] #V
+Atrial_Pules_Width = [0.05,0.4,1.9,0.4,0.4] #ms
+Ventricular_Amplitude = [0.5,3.5,7.0,3.5,3.5] #V
+Ventricular_Pulse_Width = [0.05,0.4,1.9,0.4,0.4] #ms
+VRP = [150,320,500,320,320] #ms
+ARP = [150,250,500,250,250] #ms
 
-# Lower_Rate_Limit
-# Upper_Rate_Limit
-# Atrial_Amplitude
-# Atrial_Pules_Width
-# Ventricular_Amplitude
-# Ventricular_Pulse_Width
-# VRP
-# ARP
+# Const 
+Modes = ["AOO","VOO", "AAI", "VVI"]
+Programable_Paramters = ["Lower Rate Limit", "Upper Rate Limit", "Atrial Amplitude","Atrial Pules Width",
+                         "Ventricular Amplitude", "Ventricular Pulse Width", "VRP", "ARP"]
+Mode_Parameters = [[True,True,True,True,False,False,False,False],
+                   [True,True,False,False,True,True,False,False],
+                   [True,True,True,True,False,False,False,True],
+                   [True,True,False,False,True,True,True,False]]
+
 
 # returns true if the username and password match a registered user, false otherwise
 def login_request(username, password):
@@ -68,8 +77,8 @@ def export_report(type):
     with open(file_name, 'w') as file:
         file.write(type+ " Parameters Report"+
                    "\nDate: " + current_datetime.strftime("%Y/%M/%D %H:%M:%S")+
-                   "\nDevice Model: Insert Here"+
-                    "\nSerial Number: Insert Here"+
+                   "\nDevice Model: Pacemaker"+
+                    "\nSerial Number: HOOO25"+
                     "\nDCM Serial Number: Insert Here"+
                     "\nApplication Model: Insert Here"+
                     "\nVersion Number: Insert Here"+
