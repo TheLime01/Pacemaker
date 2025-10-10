@@ -55,7 +55,6 @@ def Successful_login(): #Gives access to my account page
     My_account = tk.Tk() #Open new window
     My_account.title("My Account")
     My_account.geometry("1080x1080")
-    Frame = tk.Frame(My_account) #Opens a new frame
     label = tk.Label(My_account, text = "Incorrect username/password", font = ('Arial', 14), fg = 'black', bg = "#CBC3E3") #Sets text settings
     label.place(x=350, y=425)
 
@@ -160,6 +159,7 @@ Password_box.place(x=470, y=555); #Display password box
 ############################## Main ##############################
 
 Window.mainloop() #Displays the window
+
 
 
 
