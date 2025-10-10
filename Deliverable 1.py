@@ -52,9 +52,13 @@ def Verify_account(username, password):
 
 def Successful_login(): #function
     Window.destroy(); #close main window
-    login = tk.Tk();
-    login.title("My Account");
-    login.geometry("1080x1080");
+    My_account = tk.Tk()
+    My_account.title("My Account")
+    My_account.geometry("1080x1080")
+    Frame = tk.Frame(My_account)
+    label = tk.Label(My_account, text = "Incorrect username/password", font = ('Arial', 14), fg = 'black', bg = "#CBC3E3") #Sets text settings
+    label.place(x=350, y=425)
+
     login.mainloop();
     
 def Add_new_user(username, password):
@@ -158,3 +162,4 @@ Password_box.place(x=470, y=555); #Display password box
 ############################## Main ##############################
 
 Window.mainloop() #Displays the window
+
