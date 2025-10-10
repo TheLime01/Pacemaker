@@ -57,6 +57,27 @@ def Successful_login(): #function
     login.geometry("1080x1080");
     login.mainloop();
     
+def Add_new_user(username, password):
+    with open("userdata.json", "r") as file:
+        data = json.load(file) 
+    if len(data['registered users']) > 10:
+        return False, "User list at capacity."
+    new_user = {
+        "username": username.strip(),
+        "password": password.strip()
+    }
+    if len(new_user['username']) < 6 or len(new_user['password']) < 6:
+        return False, "Username & password must be at least 6 characters."
+    elif len(new_user['username']) > 25 or len(new_user['password']) > 25:
+        return False, "Username & password cannot exceed 25 characters."
+    for user in data['registered users']:
+        if new_user['username'] == user['username']:
+            return False, "Username already taken, please try again."
+    data["registered users"].append(new_user)
+    with open("userdata.json", "w") as file:
+        json.dump(data, file, indent=4)
+        return True, "New user added, please sign in!"
+    
 def Sign_in():
     Username_input, Password_input = Get_input()
     Verify = Verify_account(Username_input, Password_input)
@@ -64,15 +85,16 @@ def Sign_in():
         Successful_login()
     else:
         Sign_in_label2 = Label(Window, text = "Incorrect username/password", font = ('Arial', 14), fg = 'black', bg = "#CBC3E3") #Sets text settings
-        Sign_in_label2.place(x=495, y=425) #Displays sign in text
-    
+        Sign_in_label2.place(x=395, y=425) #Displays sign in text
     #Sign_in_label = Label(Window, text = "Incorrect username/password", font = ('Arial', 14), fg = 'black', bg = "#CBC3E3") #Sets text settings
     #Sign_in_label.place(x=395, y=425) #Displays sign in text
     #Sign_in_label.after(3000, Sign_in_label.destroy) #Removes sign in text after some time
 
 def Sign_up():
-    Sign_up_label = Label(Window, text = "Account created, sign in now", font = ('Arial', 14), fg = 'black', bg = "#CBC3E3") #Sets text settings
-    Sign_up_label.place(x=400, y=425) #Displays sign up text
+    Username_input, Password_input = Get_input()
+    Verify, Message = Add_new_user(Username_input, Password_input)
+    Sign_up_label = Label(Window, text = Message, font = ('Arial', 14), fg = 'black', bg = "#CBC3E3") #Sets text settings
+    Sign_up_label.place(x=350, y=425) #Displays sign up text
     Sign_up_label.after(3000, Sign_up_label.destroy) #Removes sign up text after some time
 
 def Connected():
