@@ -37,12 +37,12 @@ def About():
 
     About_window.mainloop() #Displays the about window
 
-def Get_input():
+def Get_input(): #Get username and password and returns it
     Username_input = Username_box.get()
     Password_input = Password_box.get()
     return Username_input, Password_input
 
-def Verify_account(username, password):
+def Verify_account(username, password): #Check if username and password is correct
     with open("userdata.json", "r") as file:
         data = json.load(file) 
     for user in data['registered users']:
@@ -50,18 +50,18 @@ def Verify_account(username, password):
             return True
     return False
 
-def Successful_login(): #function
-    Window.destroy(); #close main window
-    My_account = tk.Tk()
+def Successful_login(): #Gives access to my account page
+    Window.destroy(); #Close main window
+    My_account = tk.Tk() #Open new window
     My_account.title("My Account")
     My_account.geometry("1080x1080")
-    Frame = tk.Frame(My_account)
+    Frame = tk.Frame(My_account) #Opens a new frame
     label = tk.Label(My_account, text = "Incorrect username/password", font = ('Arial', 14), fg = 'black', bg = "#CBC3E3") #Sets text settings
     label.place(x=350, y=425)
 
     login.mainloop();
     
-def Add_new_user(username, password):
+def Add_new_user(username, password): #Checks sign up conditions and if it's all correct then signs up the user
     with open("userdata.json", "r") as file:
         data = json.load(file) 
     if len(data['registered users']) > 10:
@@ -82,7 +82,7 @@ def Add_new_user(username, password):
         json.dump(data, file, indent=4)
         return True, "New user added, please sign in!"
     
-def Sign_in():
+def Sign_in(): #Gets username and password and verifies if it's correct
     Username_input, Password_input = Get_input()
     Verify = Verify_account(Username_input, Password_input)
     if (Verify == True):
@@ -90,11 +90,9 @@ def Sign_in():
     else:
         Sign_in_label2 = Label(Window, text = "Incorrect username/password", font = ('Arial', 14), fg = 'black', bg = "#CBC3E3") #Sets text settings
         Sign_in_label2.place(x=395, y=425) #Displays sign in text
-    #Sign_in_label = Label(Window, text = "Incorrect username/password", font = ('Arial', 14), fg = 'black', bg = "#CBC3E3") #Sets text settings
-    #Sign_in_label.place(x=395, y=425) #Displays sign in text
-    #Sign_in_label.after(3000, Sign_in_label.destroy) #Removes sign in text after some time
+        Sign_in_label.after(3000, Sign_in_label.destroy) #Removes sign in text after some time
 
-def Sign_up():
+def Sign_up(): #Gets username and password and verifies sign up conditions
     Username_input, Password_input = Get_input()
     Verify, Message = Add_new_user(Username_input, Password_input)
     Sign_up_label = Label(Window, text = Message, font = ('Arial', 14), fg = 'black', bg = "#CBC3E3") #Sets text settings
@@ -162,4 +160,6 @@ Password_box.place(x=470, y=555); #Display password box
 ############################## Main ##############################
 
 Window.mainloop() #Displays the window
+
+
 
