@@ -1,0 +1,28 @@
+{
+    "registered users": [
+        {
+            "username": "testuser1",
+            "password": "123456"
+        },
+        {
+            "username": "testuser2",
+            "password": "123456"
+        },
+        {
+            "username": "testuser3",
+            "password": "abcdefg"
+        },
+        {
+            "username": "testuser4",
+            "password": "654321"
+        },
+        {
+            "username": "test user 5",
+            "password": "hello"
+        },
+        {
+            "username": "testuser6",
+            "password": "123456"
+        }
+    ]
+}
