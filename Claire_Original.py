@@ -132,10 +132,10 @@ def export_report(type: str):
                     "\n"+ "\t" + Programable_Parameters[7]+ ": "+ str(ARP[i]) + Parameters_Units[7]
       )
         
+    subprocess.Popen(["notepad.exe",file_name])
     return file_name
 
 
-#subprocess.Popen(["notepad.exe", export_report("Bradycardia")])
 
 
 
