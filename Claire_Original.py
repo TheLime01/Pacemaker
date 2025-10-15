@@ -30,9 +30,23 @@ Mode_Parameters = [[False,False,False,False,False,False,False,False],
                    [True,True,False,False,True,True,True,False]]
 
 
+# check is userdata.json file exists, creates empty one f not
+def userdata_exists():
+    try:
+        with open("userdata.json", 'r') as file:
+            data = json.load(file)
+    except FileNotFoundError:
+        data = {
+            "registered users": []
+            }  
+        with open("userdata.json", 'w') as file:
+            json.dump(data, file, indent=4)
+
 
 # returns true if the username and password match a registered user, false otherwise
 def login_request(username, password):
+    userdata_exists()
+
     with open("userdata.json", "r") as file:
         data = json.load(file) 
 
@@ -47,6 +61,8 @@ def login_request(username, password):
 
 # adds a new user to "userdata.json" 
 def add_new_user(username, password):
+    userdata_exists()
+
     with open("userdata.json", "r") as file:
         data = json.load(file) 
 
@@ -115,12 +131,11 @@ def export_report(type: str):
                     "\n"+ "\t" + Programable_Parameters[6]+ ": "+ str(VRP[i]) + Parameters_Units[6]+
                     "\n"+ "\t" + Programable_Parameters[7]+ ": "+ str(ARP[i]) + Parameters_Units[7]
       )
-    
-    subprocess.Popen(["notepad.exe",file_name])
+        
     return file_name
 
-    
-#export_report("Bradycardia")
+
+#subprocess.Popen(["notepad.exe", export_report("Bradycardia")])
 
 
 
