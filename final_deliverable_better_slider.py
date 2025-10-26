@@ -215,8 +215,12 @@ def create_slider_with_entry(parent, label, from_, to, x, y, initial): #can type
             val = float(entry.get()) #try coverting the text to number
             if from_ <= val <= to: #can only be within the range
                 var.set(val) #update value
+            else:
+                print("Error")
+            
+            
         except ValueError:
-            "Error"
+            print("Error")
 
     #when user hits enter or clicks out - updates slider
     entry.bind("<Return>", update_from_entry)
