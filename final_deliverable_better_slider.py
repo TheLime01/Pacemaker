@@ -67,9 +67,9 @@ mode_parameters = {
 Window = Tk() #Initiates a window
 Window.geometry("1080x1080") #Sets size of the window
 Window.title("Pacemaker") #Sets the title
-#Icon = PhotoImage(file = "C:/Users/emily/Downloads/Pacemaker Logo.png") #Sets the icon
-#Window.iconphoto(True, Icon) #Displays the icon
-#Window.config(background = "#CBC3E3") #Sets colour of background
+Icon = PhotoImage(file = "C:/Users/emily/Downloads/Pacemaker Logo.png") #Sets the icon
+Window.iconphoto(True, Icon) #Displays the icon
+Window.config(background = "#CBC3E3") #Sets colour of background
 
 ############################## Functions ##############################
 
@@ -434,6 +434,7 @@ Password_box.place(x=470, y=555); #Display password box
 ############################## Main ##############################
 
 Window.mainloop() #Displays the window
+
 
 
 
