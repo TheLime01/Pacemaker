@@ -1,3 +1,7 @@
+#make it a bit more user friendly - look wise - spacing, font sizing
+# bradycardia report- shows mode and only parameters that apply
+#save button saves new mode too
+
 from tkinter import *
 import tkinter as tk
 from tkinter import ttk
@@ -23,12 +27,25 @@ Ventricular_Pulse_Width = [0.05,0.4,1.9,0.4,0.4] #ms
 VRP = [150,320,500,320,320] #ms
 ARP = [150,250,500,250,250] #ms
 
+
+parameter_values = {
+    "Lower Rate Limit": [30, 60, 175, 60, 60],
+    "Upper Rate Limit": [50, 120, 175, 120, 120],
+    "Atrial Amplitude": [0.5, 3.5, 7.0, 3.5, 3.5],
+    "Atrial Pules Width": [0.05, 0.4, 1.9, 0.4, 0.4],
+    "Ventricular Amplitude": [0.5, 3.5, 7.0, 3.5, 3.5],
+    "Ventricular Pulse Width": [0.05, 0.4, 1.9, 0.4, 0.4],
+    "VRP": [150, 320, 500, 320, 320],
+    "ARP": [150, 250, 500, 250, 250]
+}
+
+
 # Constants
-Modes = ["Off", "AOO","VOO", "AAI", "VVI"]
+Modes = ["AOO","VOO", "AAI", "VVI"]
 Programmable_Parameters = ["Lower Rate Limit", "Upper Rate Limit", "Atrial Amplitude","Atrial Pules Width",
                          "Ventricular Amplitude", "Ventricular Pulse Width", "VRP", "ARP"]
-Mode_Parameters = [[False,False,False,False,False,False,False,False],
-                   [True,True,True,True,False,False,False,False],
+
+Mode_Parameters = [[True,True,True,True,False,False,False,False],
                    [True,True,False,False,True,True,False,False],
                    [True,True,True,True,False,False,False,True],
                    [True,True,False,False,True,True,True,False]]
@@ -36,12 +53,14 @@ Mode_Parameters = [[False,False,False,False,False,False,False,False],
 Parameters_Units = [" ppm", " ppm", " V", " ms", " V", " ms", " ms", " ms"]
 
 mode_parameters = {
-    "Off": [" "],
-    "AOO": ["Lower_Rate_Limit", "Upper_Rate_Limit", "Atrial_Amplitude", "Atrial_Pules_Width"],
-    "VOO": ["Lower_Rate_Limit", "Upper_Rate_Limit", "Ventricular_Amplitude", "Ventricular_Pulse_Width"],
-    "AAI": ["Lower_Rate_Limit", "Upper_Rate_Limit", "Atrial_Amplitude", "Atrial_Pules_Width", "ARP"],
-    "VVI": ["Lower_Rate_Limit", "Upper_Rate_Limit", "Ventricular_Amplitude", "Ventricular_Pulse_Width", "VRP"]
+    "AOO": ["Lower Rate Limit", "Upper Rate Limit", "Atrial Amplitude", "Atrial Pules Width"],
+    "VOO": ["Lower Rate Limit", "Upper Rate Limit", "Ventricular Amplitude", "Ventricular Pulse Width"],
+    "AAI": ["Lower Rate Limit", "Upper Rate Limit", "Atrial Amplitude", "Atrial Pules Width", "ARP"],
+    "VVI": ["Lower Rate_Limit", "Upper Rate Limit", "Ventricular Amplitude", "Ventricular Pulse_Width", "VRP"]
     }
+
+
+
 
 ############################## Setup ##################################
 
@@ -106,164 +125,144 @@ def Successful_login(): #Gives access to my account page
     root = tk.Tk() #Open new window
     root.title("My Account")
     root.geometry("1080x1080")
+    root.config(background = "#CBC3E3") #Sets colour of background
 
     About_button = Button(root, text = "About", font = ('Arial', 16), fg = 'black', bg = "white") #Sets text settings
     About_button.place(x=15, y=15) #Displays about button
     About_button.config(command = About_2) #Sets button to about function
 
-    combo_box_create()
-    scales()
-    parameters(Modes[0])
-    update_temp_values()
-    save_button = Button(root, text="Save", command=save_parameters)
-    save_button.pack(pady=20)
-    Button(root, text="Print Parameters", command=print_parameters).pack()
-    temp_report_button = Button(root, text="Temporary Report", command=lambda:export_report("Temporary"))
-    temp_report_button.pack(pady=20)
-    Bradycardia_report_button = Button(root, text="Bradycardia Report", command=lambda:export_report("Bradycardia"))
-    Bradycardia_report_button.pack(pady=20)
-    
-    root.mainloop()
+    combo_box_create() #makes the drop-down menu to choose mode
+    initializes_sliders() #makes all the sliders
+    select_mode(None) #sets the starting mode (AOO) with correct states of sliders
+    update_temp_values() #keeps updating the values in the slides
 
-def combo_box_create():
+    save_button = Button(root, text="Save", command=save_parameters)
+    save_button.place(x=525, y=300)
+    Button(root, text="Print Parameters", command=print_parameters).place(x=495, y=350)
+    temp_report_button = Button(root, text="Temporary Report", command=lambda:export_report("Temporary"))
+    temp_report_button.place(x=490, y=400)
+    Bradycardia_report_button = Button(root, text="Bradycardia Report", command=lambda:export_report("Bradycardia"))
+    Bradycardia_report_button.place(x=490, y=450)
+
+def combo_box_create(): #function to make dropdown menu
+    
     root.title("Modes")
     global label
-    label = tk.Label(root, text = "Selected Mode: ")
-    label.pack(pady = 50)
+    label = tk.Label(root, text = "Selected Mode: ", font = ('Arial', 14), fg = 'black')
+    label.place(x=450, y=90)
 
-    global combo_box
-    combo_box = ttk.Combobox(root, values = Modes, state = 'readonly')
-    combo_box.pack(pady = 10)
+    global combo_box 
+    combo_box = ttk.Combobox(root, values = Modes, state = 'readonly', font = ('Arial', 11)) #fills combo box with mode, and user can read only 
+    combo_box.place(x=450, y=130)
 
-    combo_box.set("Off") #default state
-    combo_box.bind("<<ComboboxSelected>>", select_mode) #allows user to select mode
+    combo_box.set("AOO") #default state
+    
+    combo_box.bind("<<ComboboxSelected>>", select_mode) #when user selects a mode - select mode is called, which updates the sliders
 
-def select_mode(event): #selects mode
 
+
+def select_mode(event): #updates sliders - according to mode
+    
     global selected_mode
-
-    selected_mode = combo_box.get()
-    label.config(text = "Selected Mode: " + selected_mode)
-    parameters(selected_mode)
-
-def scales():
-    ##Making scales and setting it to default value
-
-    #LowerRateLimit
-    label_LowerRateLimit = Label(root, text = Programmable_Parameters[0]); 
-    s_LowerRateLimit = Scale(root, from_=Lower_Rate_Limit[0], to=Lower_Rate_Limit[2], orient = HORIZONTAL); #creates scale from 0 to 100
-    s_LowerRateLimit.set(Lower_Rate_Limit[1]); #sets lower rate limit to nominal value
-
-    #UpperRateLimit
-    label_UpperRateLimit = Label(root, text = Programmable_Parameters[1]); 
-    s_UpperRateLimit = Scale(root, from_=Upper_Rate_Limit[0], to=Upper_Rate_Limit[2], orient = HORIZONTAL); #creates scale from 0 to 100
-    s_UpperRateLimit.set(Upper_Rate_Limit[1]);
-
-    #AtrialAmplitude
-    label_AtrialAmplitude = Label(root, text = Programmable_Parameters[2]); 
-    s_AtrialAmplitude = Scale(root, from_=Atrial_Amplitude[0], to=Atrial_Amplitude[2], orient = HORIZONTAL); #creates scale from 0 to 100
-    s_AtrialAmplitude.set(Atrial_Amplitude[1]); 
-
-
-    #AtrialPulesWidth
-    label_AtrialPulesWidth = Label(root, text = Programmable_Parameters[3]); 
-    s_AtrialPulesWidth = Scale(root, from_=Atrial_Pules_Width[0], to=Atrial_Pules_Width[2], orient = HORIZONTAL); #creates scale from 0 to 100
-    s_AtrialPulesWidth.set(Atrial_Pules_Width[1]);
-
-    #VentricularAmplitude
-    label_VentricularAmplitude = Label(root, text = Programmable_Parameters[4]); 
-    s_VentricularAmplitude = Scale(root, from_=Ventricular_Amplitude[0], to=Ventricular_Amplitude[2], orient = HORIZONTAL); #creates scale from 0 to 100
-    s_VentricularAmplitude.set(Ventricular_Amplitude[1]);
-
-    #VentricularPulseWidth
-    label_VentricularPulseWidth = Label(root, text = Programmable_Parameters[5]); 
-    s_VentricularPulseWidth = Scale(root, from_=Ventricular_Pulse_Width[0], to=Ventricular_Pulse_Width[2], orient = HORIZONTAL); #creates scale from 0 to 100
-    s_VentricularPulseWidth.set(Ventricular_Pulse_Width[1]);
-
-    #VRP
-    label_VRP = Label(root, text = Programmable_Parameters[6]); 
-    s_VRP = Scale(root, from_=VRP[0], to=VRP[2], orient = HORIZONTAL); #creates scale from 0 to 100
-    s_VRP.set(VRP[1]);
-
-    #ARP
-    label_ARP = Label(root, text = Programmable_Parameters[7]); 
-    s_ARP = Scale(root, from_=ARP[0], to=ARP[2], orient = HORIZONTAL); #creates scale from 0 to 100
-    s_ARP.set(ARP[1]);
-
-    #Puts scales into a list
-    global sList
-    sList = [s_LowerRateLimit, s_UpperRateLimit,s_AtrialAmplitude,s_AtrialPulesWidth,s_VentricularAmplitude,s_VentricularPulseWidth, s_VRP, s_ARP];
-
-    #Puts labels into a list
-    global lList
-    lList = [label_LowerRateLimit, label_UpperRateLimit, label_AtrialAmplitude,label_AtrialPulesWidth,label_VentricularAmplitude, label_VentricularPulseWidth,
-             label_VRP, label_ARP];
     
-def parameters(selected_mode):
+    selected_mode = combo_box.get() #gets current mode from combo box
+    
+    label.config(text="Selected Mode: " + selected_mode)
 
-    match selected_mode:
+    allowed = mode_parameters[selected_mode] #get the parameters that are relevent to the mode
 
-        case "Off":
-            mode = 0
-        case "AOO":
-            mode = 1
-
-        case "VOO":
-            mode = 2
-        case "AAI":
-            mode = 3
-        case "VVI":
-            mode = 4
-
-    for i in range(8):
-        if Mode_Parameters[mode][i]:
-            sList[i].place(x=100, y=70+i*70)
-            lList[i].place(x=100, y= 50+i*70)
-
+    for param, (scale, entry, var) in sliders.items():
+        if param in allowed: # if the parameter is in the current mode make available, else no
+            scale.config(state="normal")
+            entry.config(state="normal")
         else:
-            sList[i].place_forget()
-            lList[i].place_forget()
+            scale.config(state="disabled")
+            entry.config(state="disabled")
+
+
+
+def create_slider_with_entry(parent, label, from_, to, x, y, initial): #can type in entry for slider
+
+    var = tk.DoubleVar(value=initial) #creates a double int and initializes it to nominal value
+
+    tk.Label(parent, text=label).place(x=x, y=y) #puts parameter name above the slider
+
+    scale = tk.Scale(parent, from_=from_, to=to, orient='horizontal', resolution=0.01, variable=var, showvalue=False, length=150)
+    #resolution - step size of decimal
+    #variable=var --> scale widget is linked to var, meaning moving the slider updates var automatically
+    #hides the default value display
+    #pixel length of the slider
+    scale.place(x=x, y=y+20)
+
+    #creates the box to type into
+    entry = tk.Entry(parent, width=6)
+    entry.place(x=x+180, y=y+30)
+    entry.insert(0, str(initial)) #show the inital value
+
+    #shows min and max values of the sliders
+    tk.Label(parent, text=str(from_)).place(x=x, y=y+40) #min
+    tk.Label(parent, text=str(to)).place(x=x+130, y=y+40) #max
+
+
+    #when user types number into box
+    def update_from_entry(event):
+        try:
+            val = float(entry.get()) #try coverting the text to number
+            if from_ <= val <= to: #can only be within the range
+                var.set(val) #update value
+            else:
+                print("Error")
             
-def update_temp_values(): #updates value
-    Lower_Rate_Limit[3] = sList[0].get()
-    Upper_Rate_Limit[3] = sList[1].get()
-    Atrial_Amplitude[3] = sList[2].get()
-    Atrial_Pules_Width[3] = sList[3].get()
-    Ventricular_Amplitude[3] = sList[4].get()
-    Ventricular_Pulse_Width[3] = sList[5].get()
-    VRP[3] = sList[6].get()
-    ARP[3] = sList[7].get()
+            
+        except ValueError:
+            print("Error")
 
-    root.after(500, update_temp_values); #updates every 0.5s
+    #when user hits enter or clicks out - updates slider
+    entry.bind("<Return>", update_from_entry)
+    entry.bind("<FocusOut>", update_from_entry)
 
-def save_parameters(): #saves parameters
-    Lower_Rate_Limit[4] = Lower_Rate_Limit[3]
-    Upper_Rate_Limit[4] = Upper_Rate_Limit[3]
-    Atrial_Amplitude[4] = Atrial_Amplitude[3]
-    Atrial_Pules_Width[4] = Atrial_Pules_Width[3]
-    
-    Ventricular_Amplitude[4] = Ventricular_Amplitude[3]
-    Ventricular_Pulse_Width[4] = Ventricular_Pulse_Width[3]
-    VRP[4] = VRP[3]
-    ARP[4] = ARP[3]
+
+    #when slider moves - update box to show current value
+    def update_from_scale(*args): #called whenever the slider's value changes
+        entry.delete(0, tk.END) #clears entry box
+        entry.insert(0, str(round(var.get(), 2)))  #inserts new number to 2 decimal places
+
+    var.trace_add("write", update_from_scale) #when sliders value changes - call function to update box
+
+    return scale, entry, var #return scale, entry box and the shared value
+
+
+def initializes_sliders(): #initializes all the sliders
+
+    global sliders 
+
+    sliders = {}
+
+    #(parent, label, min value, max value, x pos, y pos, nominal value)
+    sliders["Lower Rate Limit"] = create_slider_with_entry(root, "Lower Rate Limit", 30, 180, 150, 220, 60)
+    sliders["Upper Rate Limit"] = create_slider_with_entry(root, "Upper Rate Limit", 50, 200, 150, 300, 120)
+    sliders["Atrial Amplitude"] = create_slider_with_entry(root, "Atrial Amplitude", 0.5, 5.0, 150, 380, 3.5)
+    sliders["Atrial Pules Width"] = create_slider_with_entry(root, "Atrial Pules Width", 0.05, 1.9, 150, 460, 0.4)
+    sliders["Ventricular Amplitude"] = create_slider_with_entry(root, "Ventricular Amplitude", 0.5, 5.0, 710, 220, 3.5)
+    sliders["Ventricular Pulse Width"] = create_slider_with_entry(root, "Ventricular Pulse Width", 0.05, 1.9, 710, 300, 0.4)
+    sliders["VRP"] = create_slider_with_entry(root, "VRP", 150, 500, 710, 380, 320)
+    sliders["ARP"] = create_slider_with_entry(root, "ARP", 150, 500, 710, 460, 250)
+
+
+def update_temp_values():
+    for param, (scale, entry, var) in sliders.items(): #loop through sliders
+        parameter_values[param][3] = var.get() #get the value for slider and put it in the temp place
+        
+    root.after(500, update_temp_values) #continuously calls this function to update temp values
+
+def save_parameters():
+    for param in parameter_values:
+        parameter_values[param][4] = parameter_values[param][3]  #save temp as permanent
 
 def print_parameters():
-
-    parameters = {
-        "Lower_Rate_Limit": Lower_Rate_Limit[4],
-        "Upper_Rate_Limit": Upper_Rate_Limit[4],
-        "Atrial_Amplitude": Atrial_Amplitude[4],
-        "Atrial_Pules_Width": Atrial_Pules_Width[4],
-        "Ventricular_Amplitude": Ventricular_Amplitude[4],
-        "Ventricular_Pulse_Width": Ventricular_Pulse_Width[4],
-        "VRP": VRP[4],
-        "ARP": ARP[4]
-
-    }
-
     print(f"\nParameters for mode {selected_mode}:")
     for param in mode_parameters[selected_mode]:
-        print(f"{param}: {parameters[param]}")
+        print(f"{param}: {parameter_values[param][4]}")
 
 # creates a new report of the type given (Bradycardia or Temporary)
 def export_report(type: str):
@@ -413,9 +412,3 @@ Password_box.place(x=470, y=555); #Display password box
 ############################## Main ##############################
 
 Window.mainloop() #Displays the window
-
-
-
-
-
-
