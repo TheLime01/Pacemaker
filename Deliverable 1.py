@@ -1,7 +1,3 @@
-#make it a bit more user friendly - look wise - spacing, font sizing
-# bradycardia report- shows mode and only parameters that apply
-#save button saves new mode too
-
 from tkinter import *
 import tkinter as tk
 from tkinter import ttk
@@ -14,51 +10,29 @@ import subprocess
 Device_model = "Pacemaker"
 Device_serial_number = "HOOO25"
 DCM_serial_number = "400325598"
-Model_number = "ABCD"
+Model_number = "4230"
 Version_number = "1.0"
 
-# programable paramters [1=lower limit, 2=nominal, 3=upper limit, 4=temporary paramater, 5=permanent parameter]
-Lower_Rate_Limit = [30,60,175,60,60] #ppm
-Upper_Rate_Limit = [50,120,175,120,120] #ppm
-Atrial_Amplitude = [0.5,3.5,7.0,3.5,3.5] #V
-Atrial_Pules_Width = [0.05,0.4,1.9,0.4,0.4] #ms
-Ventricular_Amplitude = [0.5,3.5,7.0,3.5,3.5] #V
-Ventricular_Pulse_Width = [0.05,0.4,1.9,0.4,0.4] #ms
-VRP = [150,320,500,320,320] #ms
-ARP = [150,250,500,250,250] #ms
+Modes = ["AOO","VOO", "AAI", "VVI"]
+Parameters_Units = [" ppm", " ppm", " V", " ms", " V", " ms", " ms", " ms"]
+mode_parameters = {
+    "AOO": ["Lower Rate Limit", "Upper Rate Limit", "Atrial Amplitude", "Atrial Pulse Width"],
+    "VOO": ["Lower Rate Limit", "Upper Rate Limit", "Ventricular Amplitude", "Ventricular Pulse Width"],
+    "AAI": ["Lower Rate Limit", "Upper Rate Limit", "Atrial Amplitude", "Atrial Pulse Width", "ARP"],
+    "VVI": ["Lower Rate Limit", "Upper Rate Limit", "Ventricular Amplitude", "Ventricular Pulse Width", "VRP"]
+    }
 
-
-parameter_values = {
+Mode = ["AOO", "AOO"] #0=temporary paramater, 1=permanent parameter
+parameter_values = { # programable paramters [1=lower limit, 2=nominal, 3=upper limit, 4=temporary paramater, 5=permanent parameter]
     "Lower Rate Limit": [30, 60, 175, 60, 60],
     "Upper Rate Limit": [50, 120, 175, 120, 120],
     "Atrial Amplitude": [0.5, 3.5, 7.0, 3.5, 3.5],
-    "Atrial Pules Width": [0.05, 0.4, 1.9, 0.4, 0.4],
+    "Atrial Pulse Width": [0.05, 0.4, 1.9, 0.4, 0.4],
     "Ventricular Amplitude": [0.5, 3.5, 7.0, 3.5, 3.5],
     "Ventricular Pulse Width": [0.05, 0.4, 1.9, 0.4, 0.4],
     "VRP": [150, 320, 500, 320, 320],
     "ARP": [150, 250, 500, 250, 250]
 }
-
-
-# Constants
-Modes = ["AOO","VOO", "AAI", "VVI"]
-Programmable_Parameters = ["Lower Rate Limit", "Upper Rate Limit", "Atrial Amplitude","Atrial Pules Width",
-                         "Ventricular Amplitude", "Ventricular Pulse Width", "VRP", "ARP"]
-
-Mode_Parameters = [[True,True,True,True,False,False,False,False],
-                   [True,True,False,False,True,True,False,False],
-                   [True,True,True,True,False,False,False,True],
-                   [True,True,False,False,True,True,True,False]]
-
-Parameters_Units = [" ppm", " ppm", " V", " ms", " V", " ms", " ms", " ms"]
-
-mode_parameters = {
-    "AOO": ["Lower Rate Limit", "Upper Rate Limit", "Atrial Amplitude", "Atrial Pules Width"],
-    "VOO": ["Lower Rate Limit", "Upper Rate Limit", "Ventricular Amplitude", "Ventricular Pulse Width"],
-    "AAI": ["Lower Rate Limit", "Upper Rate Limit", "Atrial Amplitude", "Atrial Pules Width", "ARP"],
-    "VVI": ["Lower Rate_Limit", "Upper Rate Limit", "Ventricular Amplitude", "Ventricular Pulse_Width", "VRP"]
-    }
-
 
 
 
@@ -67,29 +41,13 @@ mode_parameters = {
 Window = Tk() #Initiates a window
 Window.geometry("1080x1080") #Sets size of the window
 Window.title("Pacemaker") #Sets the title
-Icon = PhotoImage(file = "C:/Users/emily/Downloads/Pacemaker Logo.png") #Sets the icon
+Icon = PhotoImage(file = "Pacemaker Logo.png") #Sets the icon
 Window.iconphoto(True, Icon) #Displays the icon
 Window.config(background = "#CBC3E3") #Sets colour of background
 
 ############################## Functions ##############################
 
 def About():
-    About_window = Toplevel() #Initiates about window
-    About_window.geometry("360x180")
-    About_window.title("About") #Sets title
-
-    Model_Number = Label(About_window, text = "Model Number: " + Model_number, font = ('Arial', 14), fg = 'black', bg = "white") #Sets text settings
-    Model_Number.place(x=10, y=10) #Displays model number text
-    Software_Revision_Number = Label(About_window, text = "Software Revision Number: Version " + Version_number, font = ('Arial', 14), fg = 'black', bg = "white") #Sets text settings
-    Software_Revision_Number.place(x=10, y=40) #Displays software revision number text
-    DCM_Serial_Number = Label(About_window, text = "DCM Serial Number: " + DCM_serial_number, font = ('Arial', 14), fg = 'black', bg = "white") #Sets text settings
-    DCM_Serial_Number.place(x=10, y=70) #Displays DCM serial number text
-    Institution_Name = Label(About_window, text = "Institution Name: McMaster University", font = ('Arial', 14), fg = 'black', bg = "white") #Sets text settings
-    Institution_Name.place(x=10, y=100) #Displays institution name text
-
-    About_window.mainloop() #Displays the about window
-
-def About_2():
     About_window = Toplevel() #Initiates about window
     About_window.geometry("360x180")
     About_window.title("About") #Sets title
@@ -129,16 +87,15 @@ def Successful_login(): #Gives access to my account page
 
     About_button = Button(root, text = "About", font = ('Arial', 16), fg = 'black', bg = "white") #Sets text settings
     About_button.place(x=15, y=15) #Displays about button
-    About_button.config(command = About_2) #Sets button to about function
+    About_button.config(command = About) #Sets button to about function
 
     combo_box_create() #makes the drop-down menu to choose mode
     initializes_sliders() #makes all the sliders
-    select_mode(None) #sets the starting mode (AOO) with correct states of sliders
+    select_mode(Mode[0]) #sets the starting mode (AOO) with correct states of sliders
     update_temp_values() #keeps updating the values in the slides
 
-    save_button = Button(root, text="Save", command=save_parameters)
-    save_button.place(x=525, y=300)
-    Button(root, text="Print Parameters", command=print_parameters).place(x=495, y=350)
+    save_button = Button(root, text="Save Parameters", command=save_parameters)
+    save_button.place(x=495, y=300)
     temp_report_button = Button(root, text="Temporary Report", command=lambda:export_report("Temporary"))
     temp_report_button.place(x=490, y=400)
     Bradycardia_report_button = Button(root, text="Bradycardia Report", command=lambda:export_report("Bradycardia"))
@@ -162,9 +119,7 @@ def combo_box_create(): #function to make dropdown menu
 
 
 def select_mode(event): #updates sliders - according to mode
-    
-    global selected_mode
-    
+        
     selected_mode = combo_box.get() #gets current mode from combo box
     
     label.config(text="Selected Mode: " + selected_mode)
@@ -242,7 +197,7 @@ def initializes_sliders(): #initializes all the sliders
     sliders["Lower Rate Limit"] = create_slider_with_entry(root, "Lower Rate Limit", 30, 180, 150, 220, 60)
     sliders["Upper Rate Limit"] = create_slider_with_entry(root, "Upper Rate Limit", 50, 200, 150, 300, 120)
     sliders["Atrial Amplitude"] = create_slider_with_entry(root, "Atrial Amplitude", 0.5, 5.0, 150, 380, 3.5)
-    sliders["Atrial Pules Width"] = create_slider_with_entry(root, "Atrial Pules Width", 0.05, 1.9, 150, 460, 0.4)
+    sliders["Atrial Pulse Width"] = create_slider_with_entry(root, "Atrial Pulse Width", 0.05, 1.9, 150, 460, 0.4)
     sliders["Ventricular Amplitude"] = create_slider_with_entry(root, "Ventricular Amplitude", 0.5, 5.0, 710, 220, 3.5)
     sliders["Ventricular Pulse Width"] = create_slider_with_entry(root, "Ventricular Pulse Width", 0.05, 1.9, 710, 300, 0.4)
     sliders["VRP"] = create_slider_with_entry(root, "VRP", 150, 500, 710, 380, 320)
@@ -252,17 +207,16 @@ def initializes_sliders(): #initializes all the sliders
 def update_temp_values():
     for param, (scale, entry, var) in sliders.items(): #loop through sliders
         parameter_values[param][3] = var.get() #get the value for slider and put it in the temp place
+
+    Mode[0] = combo_box.get()
         
     root.after(500, update_temp_values) #continuously calls this function to update temp values
 
 def save_parameters():
     for param in parameter_values:
         parameter_values[param][4] = parameter_values[param][3]  #save temp as permanent
-
-def print_parameters():
-    print(f"\nParameters for mode {selected_mode}:")
-    for param in mode_parameters[selected_mode]:
-        print(f"{param}: {parameter_values[param][4]}")
+    
+    Mode[1] = combo_box.get()
 
 # creates a new report of the type given (Bradycardia or Temporary)
 def export_report(type: str):
@@ -276,31 +230,25 @@ def export_report(type: str):
     if type == "Bradycardia":
         i = 4
 
+    param_str = "\n\tMode: " + Mode[i-3] + "\n"
+    for param in mode_parameters[Mode[i-3]]:
+        param_str += f"\t{param}: {parameter_values[param][i]}\n"
+
     # writes report
     with open(file_name, 'w') as file:
         file.write(type + " Parameters Report"+
-                   "\nDate: " + current_datetime.strftime("%Y/%M/%D %H:%M:%S")+
+                   "\nDate: " + current_datetime.strftime("%Y-%m-%d %H:%M:%S")+
                    "\nDevice Model: "+ Device_model+
                     "\nSerial Number: "+ Device_serial_number+
                     "\nDCM Serial Number: "+ DCM_serial_number+
                     "\nApplication Model: "+ Model_number+
                     "\nVersion Number: "+ Version_number+
-                    "\n----------------------------------"
-                    "\n"+ type + " Parameters: "+
-                    "\n"+ "\t" + Programmable_Parameters[0]+ ": "+ str(Lower_Rate_Limit[i]) + Parameters_Units[0]+
-                    "\n"+ "\t" + Programmable_Parameters[1]+ ": "+ str(Upper_Rate_Limit[i]) + Parameters_Units[1]+
-                    "\n"+ "\t" + Programmable_Parameters[2]+ ": "+ str(Atrial_Amplitude[i]) + Parameters_Units[2]+
-                    "\n"+ "\t" + Programmable_Parameters[3]+ ": "+ str(Atrial_Pules_Width[i]) + Parameters_Units[3]+
-                    "\n"+ "\t" + Programmable_Parameters[4]+ ": "+ str(Ventricular_Amplitude[i]) + Parameters_Units[4]+
-                    "\n"+ "\t" + Programmable_Parameters[5]+ ": "+ str(Ventricular_Pulse_Width[i]) + Parameters_Units[5]+
-                    "\n"+ "\t" + Programmable_Parameters[6]+ ": "+ str(VRP[i]) + Parameters_Units[6]+
-                    "\n"+ "\t" + Programmable_Parameters[7]+ ": "+ str(ARP[i]) + Parameters_Units[7]
-      )
+                    "\n----------------------------------"+param_str
+        )
         
     subprocess.Popen(["notepad.exe",file_name])
-    #return file_name
 
-# check is userdata.json file exists, creates empty one f not
+# check is userdata.json file exists, creates empty one if not
 def userdata_exists():
     try:
         with open("userdata.json", 'r') as file:
@@ -316,19 +264,23 @@ def Add_new_user(username, password): #Checks sign up conditions and if it's all
     userdata_exists()
     with open("userdata.json", "r") as file:
         data = json.load(file) 
-    if len(data['registered users']) > 10:
+    if len(data['registered users']) > 10: # checks if user list is full
         return False, "User list at capacity."
     new_user = {
         "username": username.strip(),
         "password": password.strip()
     }
+
+    # checks username and password lengths 
     if len(new_user['username']) < 6 or len(new_user['password']) < 6:
         return False, "Username & password must be at least 6 characters."
     elif len(new_user['username']) > 25 or len(new_user['password']) > 25:
         return False, "Username & password cannot exceed 25 characters."
-    for user in data['registered users']:
+    for user in data['registered users']: # checks if username already exists
         if new_user['username'] == user['username']:
             return False, "Username already taken, please try again."
+    
+    # adds new user
     data["registered users"].append(new_user)
     with open("userdata.json", "w") as file:
         json.dump(data, file, indent=4)
