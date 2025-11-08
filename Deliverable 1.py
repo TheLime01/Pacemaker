@@ -4,7 +4,43 @@ from tkinter import ttk
 import json
 from datetime import datetime
 import subprocess
+import serial
+from serial.tools import list_ports
+import time
+import threading
 
+############################## Serial ##############################
+
+def On_Connect(port):
+    ser = serial.Serial(port, 9600, timeout = 1) #Connects serial
+    print("Connected to", ser.name)
+    ser.write(b'hello')
+    ser.close()
+
+last_port = None #Stores last connection
+Status = "Disonnected"
+
+def Monitor_Ports():
+    global Status
+    #Checks continuously if connection has changed
+    while True:
+        ports = list(list_ports.comports()) #Checks ports list continuously and stores it
+        if ports:
+            port = ports[0].device #Stores first device
+            if port != last_port: #Checks if connection has changed
+                On_Connect(port)
+                last_port = port #Stores new device
+                Status = "Connected"
+            elif port == last_port:
+                Status = "Connected"
+        else: #No device connected
+            last_port = None
+            Status = "Disconnected"
+        time.sleep(1) #Checks every second
+
+thread = threading.Thread(target = Monitor_Ports, daemon = True) #Allows to check ports continuously while the main program runs
+thread.start()
+        
 ############################## Variables ##############################
 
 Device_model = "Pacemaker"
@@ -77,6 +113,10 @@ def Verify_account(username, password): #Check if username and password is corre
             return True
     return False
 
+def update_status_button():
+    Status_button.config(text = Status)
+    root.after(100, update_status_button)
+
 def Successful_login(): #Gives access to my account page
     Window.destroy(); #Close main window
     global root
@@ -88,6 +128,15 @@ def Successful_login(): #Gives access to my account page
     About_button = Button(root, text = "About", font = ('Arial', 16), fg = 'black', bg = "white") #Sets text settings
     About_button.place(x=15, y=15) #Displays about button
     About_button.config(command = About) #Sets button to about function
+
+    Quit_button = Button(root, text = "Quit", font = ('Arial', 16), fg = 'black', bg = "white") #Sets text settings
+    Quit_button.place(x=1010, y=15) #Displays quit button
+    Quit_button.config(command = Quit2) #Sets button to quit function
+
+    global Status_button
+    Status_button = Button(root, text = Status, font = ('Arial', 16), fg = 'black', bg = "white") #Sets button settings
+    Status_button.place(x=15, y=725) #Displays button
+    update_status_button()
 
     combo_box_create() #makes the drop-down menu to choose mode
     initializes_sliders() #makes all the sliders
@@ -264,7 +313,7 @@ def Add_new_user(username, password): #Checks sign up conditions and if it's all
     userdata_exists()
     with open("userdata.json", "r") as file:
         data = json.load(file) 
-    if len(data['registered users']) > 10: # checks if user list is full
+    if len(data['registered users']) > 9: # checks if user list is full
         return False, "User list at capacity."
     new_user = {
         "username": username.strip(),
@@ -302,21 +351,12 @@ def Sign_up(): #Gets username and password and verifies sign up conditions
     Sign_up_label = Label(Window, text = Message, font = ('Arial', 14), fg = 'black', bg = "#CBC3E3") #Sets text settings
     Sign_up_label.place(x=350, y=425) #Displays sign up text
     Sign_up_label.after(3000, Sign_up_label.destroy) #Removes sign up text after some time
-
-def Connected():
-    Not_Connected_button.after(10, Not_Connected_button.destroy)
-    Connected_button = Button(Window, text = "Connected", font = ('Arial', 16), fg = 'black', bg = "white") #Sets button settings
-    Connected_button.place(x=15, y=725) #Displays button
-    Connected_button.config(command = Not_Connected) #Sets button to not connected function
-
-def Not_Connected():
-    Connected_button.after(10, Connected_button.destroy)
-    Not_Connected_button = Button(Window, text = "Not Connected", font = ('Arial', 16), fg = 'black', bg = "white") #Sets button settings
-    Not_Connected_button.place(x=15, y=725) #Displays button
-    Not_Connected_button.config(command = Connected) #Sets button to connected function
-    
+  
 def Quit():
     Window.destroy() #Quits window
+
+def Quit2():
+    root.destroy() #Quits window
 
 ############################## Widgets ##############################
 
@@ -343,12 +383,6 @@ Sign_in_button.config(command = Sign_in) #Sets button to sign in function
 Sign_up_button = Button(Window, text = "Sign Up", font = ('Arial', 14), fg = 'black', bg = "white") #Sets button settings
 Sign_up_button.place(x=620, y=545) #Displays button
 Sign_up_button.config(command = Sign_up) #Sets button to sign up function
-
-Not_Connected_button = Button(Window, text = "Not Connected", font = ('Arial', 16), fg = 'black', bg = "white") #Sets button settings
-Not_Connected_button.place(x=15, y=725) #Displays button
-Not_Connected_button.config(command = Connected) #Sets button to connected function
-
-Connected_button = Button(Window, text = "Connected", font = ('Arial', 16), fg = 'black', bg = "white") #Sets button settings
 
 Quit_button = Button(Window, text = "Quit", font = ('Arial', 16), fg = 'black', bg = "white") #Sets text settings
 Quit_button.place(x=1010, y=15) #Displays quit button
