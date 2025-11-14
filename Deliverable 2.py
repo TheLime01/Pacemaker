@@ -38,19 +38,16 @@ class SerialMonitor:
                         print(p.description)
                         port = p.device  #Stores the device port
 
-                if port:
-                    if port != self.last_port:  #Checks if connection has changed
-                        try:
-                            self.On_Connect(port)
-                            self.last_port = port  #Stores new device
+                        if port == self.last_port:
                             self.Status = "Connected"
-                        except Exception as e:
-                            print("On_Connect error:", e)
-                    elif port == self.last_port:
-                        self.Status = "Connected"
-                    else:
-                        self.last_port = None
-                        self.Status = "Disconnected"
+                        elif port != self.last_port:  #Checks if connection has changed
+                            if port != None:
+                                self.On_Connect(port)
+                                self.last_port = port  #Stores new device
+                                self.Status = "Connected"
+                            else:
+                                self.last_port = None
+                                self.Status = "Disconnected"
 
             else: #No device connected
                 self.last_port = None
