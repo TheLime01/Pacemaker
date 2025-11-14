@@ -48,7 +48,12 @@ class SerialMonitor:
                             else:
                                 self.last_port = None
                                 self.Status = "Disconnected"
-
+                        else:
+                            self.last_port = None
+                            self.Status = "Disconnected"
+                    else:
+                        self.last_port = None
+                        self.Status = "Disconnected"
             else: #No device connected
                 self.last_port = None
                 self.Status = "Disconnected"
