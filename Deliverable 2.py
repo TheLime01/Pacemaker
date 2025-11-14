@@ -48,6 +48,9 @@ class SerialMonitor:
                             print("On_Connect error:", e)
                     elif port == self.last_port:
                         self.Status = "Connected"
+                    else:
+                        self.last_port = None
+                        self.Status = "Disconnected"
 
             else: #No device connected
                 self.last_port = None
