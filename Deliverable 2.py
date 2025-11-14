@@ -14,7 +14,6 @@ import threading
 class SerialMonitor:
 
     def __init__(self):
-        self.port = None  #Stores current connection
         self.last_port = None  #Stores last connection
         self.Status = "Disconnected" #Default status is disconnected
         self.Port_Description = "JLink CDC UART Port" #Pacemaker decsription
@@ -32,6 +31,7 @@ class SerialMonitor:
     def _monitor_ports(self):
         while True: #Continuously runs & checks
             ports = list(list_ports.comports())  #Checks ports list continuously and stores it
+            port = None
             if ports: #If there is contents in the list
                 for p in ports: #Check each item in the list
                     if self.Port_Description in p.description: #If the Pacemaker description is found
