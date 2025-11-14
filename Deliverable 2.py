@@ -28,7 +28,7 @@ class SerialMonitor:
         ser.write(b'hello') #Writes to serial
         ser.close()
 
-        def _monitor_ports(self):
+    def _monitor_ports(self):
         while True:
             ports = list(list_ports.comports())
             pacemaker_port = None
@@ -522,4 +522,5 @@ class PacemakerGUI:
 if __name__ == "__main__":
     app = PacemakerGUI()
     app.run()
+
 
