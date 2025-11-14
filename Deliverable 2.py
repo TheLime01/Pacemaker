@@ -28,35 +28,35 @@ class SerialMonitor:
         ser.write(b'hello') #Writes to serial
         ser.close()
 
-    def _monitor_ports(self):
-        while True: #Continuously runs & checks
-            ports = list(list_ports.comports())  #Checks ports list continuously and stores it
-            port = None
-            if ports: #If there is contents in the list
-                for p in ports: #Check each item in the list
-                    if self.Port_Description in p.description: #If the Pacemaker description is found
-                        print(p.description)
-                        port = p.device  #Stores the device port
-                    else:
-                        self.last_port = None
-                        self.Status = "Disconnected"
-                    if port == self.last_port:
-                        self.Status = "Connected"
-                    elif port != self.last_port:  #Checks if connection has changed
-                        if port != None:
-                            self.On_Connect(port)
-                            self.last_port = port  #Stores new device
-                            self.Status = "Connected"
-                        else:
-                            self.last_port = None
-                            self.Status = "Disconnected"
-                    else:
-                        self.last_port = None
-                        self.Status = "Disconnected"
-            else: #No device connected
+        def _monitor_ports(self):
+        while True:
+            ports = list(list_ports.comports())
+            pacemaker_port = None
+
+            # Look for *only* the pacemaker device
+            for p in ports:
+                if self.Port_Description in p.description:
+                    pacemaker_port = p.device
+                    break
+
+            # Pacemaker FOUND
+            if pacemaker_port:
+                if pacemaker_port != self.last_port:  # New connection
+                    try:
+                        self.On_Connect(pacemaker_port)
+                        self.last_port = pacemaker_port
+                    except Exception as e:
+                        print("On_Connect error:", e)
+                self.Status = "Connected"
+
+            # Pacemaker NOT FOUND
+            else:
+                if self.last_port is not None:
+                    print("Pacemaker disconnected")
                 self.last_port = None
                 self.Status = "Disconnected"
-            time.sleep(1)  # Checks every second
+
+            time.sleep(1)
 
     def stop(self):
         pass
@@ -522,3 +522,4 @@ class PacemakerGUI:
 if __name__ == "__main__":
     app = PacemakerGUI()
     app.run()
+
