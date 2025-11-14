@@ -14,39 +14,40 @@ import threading
 class SerialMonitor:
 
     def __init__(self):
+        self.port = None  #Stores current connection
         self.last_port = None  #Stores last connection
-        self.Status = "Disconnected"
-        self.Port_Description = "JLink CDC UART Port"
+        self.Status = "Disconnected" #Default status is disconnected
+        self.Port_Description = "JLink CDC UART Port" #Pacemaker decsription
 
         #Start monitor thread (daemon so it won't block program exit)
-        self.thread = threading.Thread(target=self._monitor_ports, daemon=True)
+        self.thread = threading.Thread(target=self._monitor_ports, daemon=True) #Allows to run while main code runs
         self.thread.start()
 
     def On_Connect(self, port):
         ser = serial.Serial(port, 9600, timeout=1)  #Connects serial
         print("Connected to", ser.name)
-        ser.write(b'hello')
+        ser.write(b'hello') #Writes to serial
         ser.close()
 
     def _monitor_ports(self):
-        while True:
+        while True: #Continuously runs & checks
             ports = list(list_ports.comports())  #Checks ports list continuously and stores it
-            if ports:
-                for p in ports:
-                    if self.Port_Description in p.description:
+            if ports: #If there is contents in the list
+                for p in ports: #Check each item in the list
+                    if self.Port_Description in p.description: #If the Pacemaker description is found
                         print(p.description)
-                        port = p.device  #Stores first device
+                        port = p.device  #Stores the device port
 
-                if port != self.last_port:  #Checks if connection has changed
-                    try:
-                        self.On_Connect(port)
-                        self.last_port = port  # Stores new device
+                if port:
+                    if port != self.last_port:  #Checks if connection has changed
+                        try:
+                            self.On_Connect(port)
+                            self.last_port = port  #Stores new device
+                            self.Status = "Connected"
+                        except Exception as e:
+                            print("On_Connect error:", e)
+                    elif port == self.last_port:
                         self.Status = "Connected"
-                    except Exception as e:
-                        print("On_Connect error:", e)
-
-                elif port == self.last_port:
-                    self.Status = "Connected"
 
             else: #No device connected
                 self.last_port = None
