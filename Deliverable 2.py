@@ -29,38 +29,36 @@ class SerialMonitor:
         ser.close()
 
     def _monitor_ports(self):
-        while True:
-            ports = list(list_ports.comports())
-            pacemaker_port = None
+        while True: #Continuously checks
+            ports = list(list_ports.comports()) #Collects and stores ports in a list
+            pacemaker_port = None #Current pacemaker port set to none first
 
-            # Look for *only* the pacemaker device
+            #Looks only for the pacemaker device
             for p in ports:
-                if self.Port_Description in p.description:
-                    pacemaker_port = p.device
+                if self.Port_Description in p.description: #Checks each port description to see if there is a match
+                    pacemaker_port = p.device #Stores the match
                     break
 
-            # Pacemaker FOUND
+            #If Pacemaker is found
             if pacemaker_port:
-                if pacemaker_port != self.last_port:  # New connection
+                if pacemaker_port != self.last_port:  #Checks for new connection
                     try:
-                        self.On_Connect(pacemaker_port)
-                        self.last_port = pacemaker_port
+                        self.On_Connect(pacemaker_port) #Gets sent to serial
+                        self.last_port = pacemaker_port #Stores the current port to check for changes
                     except Exception as e:
                         print("On_Connect error:", e)
                 self.Status = "Connected"
 
-            # Pacemaker NOT FOUND
+            #If Pacemaker is not found
             else:
-                if self.last_port is not None:
+                if self.last_port is not None: #Checks if pacemaker was disconnected
                     print("Pacemaker disconnected")
                 self.last_port = None
                 self.Status = "Disconnected"
-
             time.sleep(1)
 
     def stop(self):
         pass
-
 
 ############################## Parameters / Data ##############################
 
@@ -522,5 +520,4 @@ class PacemakerGUI:
 if __name__ == "__main__":
     app = PacemakerGUI()
     app.run()
-
 
