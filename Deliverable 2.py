@@ -8,6 +8,7 @@ import serial
 from serial.tools import list_ports
 import time
 import threading
+import struct
 
 ############################## Serial ##############################
 
@@ -19,16 +20,25 @@ class SerialMonitor:
         self.Port_Description = "JLink CDC UART Port" #Pacemaker decsription
 
         #Start monitor thread (daemon so it won't block program exit)
-        self.thread = threading.Thread(target=self._monitor_ports, daemon=True) #Allows to run while main code runs
+        self.thread = threading.Thread(target=self.Monitor_ports, daemon=True) #Allows to run while main code runs
         self.thread.start()
 
     def On_Connect(self, port):
-        ser = serial.Serial(port, 9600, timeout=1)  #Connects serial
+        ser = serial.Serial(port, 115200, timeout=1)  #Connects serial
         print("Connected to", ser.name)
-        ser.write(b'hello') #Writes to serial
-        ser.close()
+        try:
+            # Optional: read response if device echoes back
+            response = ser.read(24)  # Expect 11 bytes if echo
+            if len(response) == 24: #If same bytes sent back
+                unpacked = struct.unpack("<BBBBffffHH", response) #Unpacks the packet
+                print("Unpacked:", unpacked)
+            else:
+                print("Received incomplete packet")
+            ser.close()
+        except serial.SerialException as e:
+            print(f"Serial Port Error: {e}")
 
-    def _monitor_ports(self):
+    def Monitor_ports(self):
         while True: #Continuously checks
             ports = list(list_ports.comports()) #Collects and stores ports in a list
             pacemaker_port = None #Current pacemaker port set to none first
@@ -57,6 +67,36 @@ class SerialMonitor:
                 self.Status = "Disconnected"
             time.sleep(1)
 
+    def Write_Serial(self, param_mgr):
+        self.Packet_Serial(param_mgr) #Set up packet first
+        try:
+            ser = serial.Serial(self.last_port, 115200, timeout=1)
+            time.sleep(2) 
+            ser.write(self.packet) #Writes packet
+            ser.flush()
+            print("Packet sent successfully.")
+            ser.close()
+        except serial.SerialException as e:
+            print(f"Serial Port Error: {e}")
+
+    def Packet_Serial(self, param_mgr):
+        #Packet Parameters - 4(B) + 16(f) + 4(H) = 24 bytes
+        self.Sync = 0x16
+        self.FN_Code = 0x55  # 0x55 setting params, 0x22 echo
+        self.Lower_Rate_Limit = param_mgr.parameter_values["Lower Rate Limit"][4]
+        self.Upper_Rate_Limit = param_mgr.parameter_values["Upper Rate Limit"][4]
+        self.Atrial_Amplitude = param_mgr.parameter_values["Atrial Amplitude"][4]
+        self.Atrial_Pulse_Width = param_mgr.parameter_values["Atrial Pulse Width"][4]
+        self.Ventricular_Amplitude = param_mgr.parameter_values["Ventricular Amplitude"][4]
+        self.Ventricular_Pulse_Width = param_mgr.parameter_values["Ventricular Pulse Width"][4]
+        self.VRP = param_mgr.parameter_values["VRP"][4]
+        self.ARP = param_mgr.parameter_values["ARP"][4]
+
+        #Build packet: < = little-endian, B=uint8, f=float32, H=uint16
+        self.packet = struct.pack("<BBBBffffHH", self.Sync, self.FN_Code, self.Lower_Rate_Limit,
+                             self.Upper_Rate_Limit, self.Atrial_Amplitude, self.Atrial_Pulse_Width,
+                             self.Ventricular_Amplitude, self.Ventricular_Pulse_Width, self.VRP, self.ARP)
+            
     def stop(self):
         pass
 
@@ -376,6 +416,7 @@ class PacemakerGUI:
             self.param_mgr.parameter_values[param][4] = self.param_mgr.parameter_values[param][3]  #save temp as permanent
 
         self.param_mgr.Mode[1] = self.combo_box.get()
+        self.serial_monitor.Write_Serial(self.param_mgr)
 
     #creates a new report of the type given (Bradycardia or Temporary)
     def export_report(self, type: str):
