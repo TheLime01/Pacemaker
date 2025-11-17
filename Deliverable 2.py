@@ -112,13 +112,17 @@ class ParameterManager:
         self.Version_number = "1.0"
 
         # Modes and parameters
-        self.Modes = ["AOO", "VOO", "AAI", "VVI"]
-        self.Parameters_Units = [" ppm", " ppm", " V", " ms", " V", " ms", " ms", " ms"]
+        self.Modes = ["AOO", "VOO", "AAI", "VVI", "AOOR", "VOOR", "AAIR", "VVIR"]
+        self.Parameters_Units = [" ppm", " ppm", " V", " ms", " V", " ms", " ms", " ms", "mV", "mV"]
         self.mode_parameters = {
             "AOO": ["Lower Rate Limit", "Upper Rate Limit", "Atrial Amplitude", "Atrial Pulse Width"],
             "VOO": ["Lower Rate Limit", "Upper Rate Limit", "Ventricular Amplitude", "Ventricular Pulse Width"],
-            "AAI": ["Lower Rate Limit", "Upper Rate Limit", "Atrial Amplitude", "Atrial Pulse Width", "ARP"],
-            "VVI": ["Lower Rate Limit", "Upper Rate Limit", "Ventricular Amplitude", "Ventricular Pulse Width", "VRP"]
+            "AAI": ["Lower Rate Limit", "Upper Rate Limit", "Atrial Amplitude", "Atrial Pulse Width", "ARP", "Atrial Sensitivity"],
+            "VVI": ["Lower Rate Limit", "Upper Rate Limit", "Ventricular Amplitude", "Ventricular Pulse Width", "VRP", "Ventricular Sensitivity"],
+            "AOOR": ["Lower Rate Limit", "Upper Rate Limit", "Atrial Amplitude", "Atrial Pulse Width"],
+            "VOOR": ["Lower Rate Limit", "Upper Rate Limit", "Ventricular Amplitude", "Ventricular Pulse Width"],
+            "AAIR": ["Lower Rate Limit", "Upper Rate Limit", "Atrial Amplitude", "Atrial Pulse Width", "ARP", "Atrial Sensitivity"],
+            "VVIR": ["Lower Rate Limit", "Upper Rate Limit", "Ventricular Amplitude", "Ventricular Pulse Width", "VRP", "Ventricular Sensitivity"]
         }
 
         # Mode and parameter values
@@ -131,7 +135,9 @@ class ParameterManager:
             "Ventricular Amplitude": [0.5, 3.5, 7.0, 3.5, 3.5],
             "Ventricular Pulse Width": [0.05, 0.4, 1.9, 0.4, 0.4],
             "VRP": [150, 320, 500, 320, 320],
-            "ARP": [150, 250, 500, 250, 250]
+            "ARP": [150, 250, 500, 250, 250],
+            "Atrial Sensitivity": [0, 0, 5, 0, 0],
+            "Ventricular Sensitivity": [0, 0, 5, 0, 0]
         }
 
 
@@ -398,6 +404,13 @@ class PacemakerGUI:
         self.sliders["VRP"] = self.create_slider_with_entry(self.root, "VRP", 150, 500, 710, 380, 320)
         self.sliders["ARP"] = self.create_slider_with_entry(self.root, "ARP", 150, 500, 710, 460, 250)
 
+        self.sliders["Atrial Sensitivity"] = self.create_slider_with_entry(self.root, "Atrial Sensitivity", 0, 5, 150, 540, 0)
+        self.sliders["Ventricular Sensitivity"] = self.create_slider_with_entry(self.root, "Ventricular Sensitivity", 0, 5, 710, 540, 0)
+
+
+
+
+
     def update_temp_values(self):
         for param, (scale, entry, var) in self.sliders.items():  #loop through sliders
             self.param_mgr.parameter_values[param][3] = var.get()  #get the value for slider and put it in the temp place
@@ -561,4 +574,3 @@ class PacemakerGUI:
 if __name__ == "__main__":
     app = PacemakerGUI()
     app.run()
-
