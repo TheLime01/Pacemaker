@@ -52,7 +52,7 @@ class SerialMonitor:
             # Optional: read response if device echoes back
             response = ser.read(24)  # Expect 11 bytes if echo
             if len(response) == 24: #If same bytes sent back
-                unpacked = struct.unpack("<BBBBffffHH", response) #Unpacks the packet
+                unpacked = struct.unpack("<BBBBffffHHff", response) #Unpacks the packet
                 print("Unpacked:", unpacked)
             else:
                 print("Received incomplete packet")
@@ -117,7 +117,7 @@ class SerialMonitor:
         self.Ventricular_Sensitivity = param_mgr.parameter_values["Ventricular Sensitivity"][4]
 
         #Build packet: < = little-endian, B=uint8, f=float32, H=uint16
-        self.packet = struct.pack("<BBBBffffHH", self.Sync, self.FN_Code, self.Lower_Rate_Limit,
+        self.packet = struct.pack("<BBBBffffHHff", self.Sync, self.FN_Code, self.Lower_Rate_Limit,
                              self.Upper_Rate_Limit, self.Atrial_Amplitude, self.Atrial_Pulse_Width,
                              self.Ventricular_Amplitude, self.Ventricular_Pulse_Width, self.VRP, self.ARP,
                                   self.Atrial_Sensitivity, self.Ventricular_Sensitivity)
