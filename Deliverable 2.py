@@ -50,10 +50,31 @@ class SerialMonitor:
         print("Connected to", ser.name)
         try:
             # Optional: read response if device echoes back
-            response = ser.read(24)  # Expect 11 bytes if echo
-            if len(response) == 24: #If same bytes sent back
-                unpacked = struct.unpack("<BBBBffffHH", response) #Unpacks the packet
+            response = ser.read(30)  # Expect 11 bytes if echo
+            if len(response) == 30: #If same bytes sent back
+                unpacked = struct.unpack("<BBffffffHH", response) #Unpacks the packet
                 print("Unpacked:", unpacked)
+                (
+                sync,
+                fn_code,
+                lrl,
+                url,
+                atrial_amp,
+                atrial_pw,
+                ventricular_amp,
+                ventricular_pw,
+                vrp,
+                arp
+                ) = unpacked
+                param_mgr.parameter_values["Lower Rate Limit"][4] = lrl
+                param_mgr.parameter_values["Upper Rate Limit"][4] = url
+                param_mgr.parameter_values["Atrial Amplitude"][4] = atrial_amp
+                param_mgr.parameter_values["Atrial Pulse Width"][4] = atrial_pw
+                param_mgr.parameter_values["Ventricular Amplitude"][4] = ventricular_amp
+                param_mgr.parameter_values["Ventricular Pulse Width"][4] = ventricular_pw
+                param_mgr.parameter_values["VRP"][4] = vrp
+                param_mgr.parameter_values["ARP"][4] = arp
+
             else:
                 print("Received incomplete packet")
             ser.close()
@@ -117,10 +138,25 @@ class SerialMonitor:
         self.Ventricular_Sensitivity = param_mgr.parameter_values["Ventricular Sensitivity"][4]
 
         #Build packet: < = little-endian, B=uint8, f=float32, H=uint16
-        self.packet = struct.pack("<BBBBffffHH", self.Sync, self.FN_Code, self.Lower_Rate_Limit,
+        self.packet = struct.pack(
+        "<BBffffffHH",
+        int(self.Sync),
+        int(self.FN_Code),
+        float(self.Lower_Rate_Limit),
+        float(self.Upper_Rate_Limit),
+        float(self.Atrial_Amplitude),
+        float(self.Atrial_Pulse_Width),
+        float(self.Ventricular_Amplitude),
+        float(self.Ventricular_Pulse_Width),
+        int(self.VRP),
+        int(self.ARP)
+        )
+        """
+        self.packet = struct.pack("<BBffffffHH", self.Sync, self.FN_Code, self.Lower_Rate_Limit,
                              self.Upper_Rate_Limit, self.Atrial_Amplitude, self.Atrial_Pulse_Width,
                              self.Ventricular_Amplitude, self.Ventricular_Pulse_Width, self.VRP, self.ARP)
                                   #self.Atrial_Sensitivity, self.Ventricular_Sensitivity)
+        """
             
     def stop(self):
         pass
