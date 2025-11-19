@@ -16,18 +16,39 @@ from tkinter import font
 
 '''
 Issues
-- saving throws an error because there are now two more parameters
-
 
 Stuff to work on
-- the reports need to account for the off parameter
-- toggle contrast is a bit iffy - for logged in screen
 - make it look better
+- Assurance case - weeks , 10-11 slides, etc
 
 
 Questions
- - How the Off programmable parameter work?
- - Should the font and contrast stay for the next window?
+ - How the Off programmable parameter work? (already implemented but make sure)
+ - The sliders only increment by the amount on the PACEMAKER doc, but should the box only take in certain values too?
+
+'''
+
+
+
+
+'''
+Parameters Name                              Range                     Increment              Type
+
+Lower Rate Limit                    [30, 60, 175, 60, 60]                  5                   Int
+Upper Rate Limit                    [50, 120, 175, 120, 120]               5                   Int
+Atrial Amplitude*                   [0.1, 5, 5, 5, 5]                     0.1                  Double
+Atrial Pulse Width*                 [1, 1, 30, 1, 1]                       1                   Int
+Ventricular Amplitude*              [0.1, 5, 5, 5, 5]                     0.1                  Double
+Ventricular Pulse Width*            [1, 30, 1, 1, 1]                       1                   Int
+VRP                                 [150, 320, 500, 320, 320]              10                  Int
+ARP                                 [150, 250, 500, 250, 250]              10                  Int
+Atrial Sensitivity**                [0, 0, 5, 0, 0]                       0.1                  Double
+Ventricular Sensitivity**           [0, 0, 5, 0, 0]                       0.1                  Double
+
+
+
+*adjusted for deliverable 2
+**added for deliverable 2
 
 '''
 
@@ -340,9 +361,6 @@ class PacemakerGUI:
 
     def Successful_login(self):  #Gives access to my account page
 
-        
-
-
         self.Window.destroy();  #Close main window
         self.root = tk.Tk()  #Open new window
         self.root.title("My Account")
@@ -455,17 +473,19 @@ class PacemakerGUI:
 
         tk.Label(parent, text=label_text, font=self.global_font).place(x=x, y=y)  #puts parameter name above the slider
 
-        if label_text == "Atrial Amplitude" or label_text == "Ventricular Amplitude" or label_text == "Atrial Sensitivity" or label_text == "Ventricular Sensitivity":
+        if label_text == "Lower Rate Limit" or label_text == "Upper Rate Limit":
+            scale = tk.Scale(parent, from_=from_, to=to, orient='horizontal', resolution=5, variable=var, showvalue=False, length=150)
+            
+
+        elif label_text == "Atrial Amplitude" or label_text == "Ventricular Amplitude" or label_text == "Atrial Sensitivity" or label_text == "Ventricular Sensitivity":
             scale = tk.Scale(parent, from_=from_, to=to, orient='horizontal', resolution=0.1, variable=var, showvalue=False, length=150)
 
         elif label_text == "Atrial Pulse Width" or label_text == "Ventricular Pulse Width":
             scale = tk.Scale(parent, from_=from_, to=to, orient='horizontal', resolution=1, variable=var, showvalue=False, length=150)
 
-        elif label_text == "Atrial Sensitivity" or label_text == "Ventricular Sensitivity":
-            scale = tk.Scale(parent, from_=from_, to=to, orient='horizontal', resolution=0.1, variable=var, showvalue=False, length=150)
 
         else:
-            scale = tk.Scale(parent, from_=from_, to=to, orient='horizontal', resolution=0.01, variable=var, showvalue=False, length=150)
+            scale = tk.Scale(parent, from_=from_, to=to, orient='horizontal', resolution=10, variable=var, showvalue=False, length=150)
             
             
         # resolution - step size of decimal
@@ -599,7 +619,16 @@ class PacemakerGUI:
 
         param_str = "\n\tMode: " + self.param_mgr.Mode[i - 3] + "\n"
         for param in self.param_mgr.mode_parameters[self.param_mgr.Mode[i - 3]]:
-            param_str += f"\t{param}: {self.param_mgr.parameter_values[param][i]}\n"
+
+            value = self.param_mgr.parameter_values[param][i]
+
+            if param in self.sliders:
+                _,_,_,_,toggle_var = self.sliders[param]
+
+                if toggle_var is not None and toggle_var.get():
+                    value = "Off"
+            
+            param_str += f"\t{param}: {value}\n"
 
         #writes report
         with open(file_name, 'w') as file:
@@ -710,7 +739,7 @@ class PacemakerGUI:
         Password_label.place(x=345, y=550)
 
         # Buttons
-        Welcome_button = Button(self.Window, text="Welcome :)", font=self.global_font, fg='black', bg="white")
+        Welcome_button = Button(self.Window, text="Welcome :)", font=('Arial', 40), fg='black', bg="white")
         Welcome_button.place(x=375, y=250)
 
         About_button = Button(self.Window, text="About", font=self.global_font, fg='black', bg="white")
@@ -767,7 +796,7 @@ class PacemakerGUI:
         
         # Update all children widgets
         for widget in self.Window.winfo_children():
-            if isinstance(widget, tk.Label) or isinstance(widget, tk.Button):
+            if isinstance(widget, tk.Label):
                 widget.config(bg=bg, fg=fg)
             elif isinstance(widget, tk.Entry):
                 widget.config(bg="white", fg="black")  # keep entries white background and black text
@@ -804,8 +833,8 @@ class PacemakerGUI:
                     return
 
                 # Labels and Buttons
-                elif isinstance(widget, (tk.Label, tk.Button)):
-                    widget.config(bg=bg_color, fg=fg_color)
+                elif isinstance(widget, tk.Button):
+                    return #skips buttons
 
                 # Frame or container: process children
                 if hasattr(widget, "winfo_children"):
