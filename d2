@@ -325,6 +325,8 @@ class PacemakerGUI:
         self.Window.geometry("1080x1080") #Sets size of the window
         self.Window.title("Pacemaker") #Sets the title
 
+        self.user_editing = False
+
 
         self.high_contrast = False
 
@@ -521,8 +523,23 @@ class PacemakerGUI:
 
         else:
             scale = tk.Scale(parent, from_=from_, to=to, orient='horizontal', resolution=10, variable=var, showvalue=False, length=150)
-            
-            
+
+
+        def slider_press(event):
+            event.widget.user_is_dragging = True
+
+        def slider_release(event):
+            event.widget.user_is_dragging = False
+
+        scale.bind("<Button-1>", slider_press)
+        scale.bind("<ButtonRelease-1>", slider_release)
+        scale.user_is_dragging = False
+
+        
+
+
+        
+        
         # resolution - step size of decimal
         # variable=var --> scale widget is linked to var, meaning moving the slider updates var automatically
         # hides the default value display
@@ -647,15 +664,21 @@ class PacemakerGUI:
 
 
     def update_from_pacemaker(self):
-        """Continuously poll pacemaker for latest permanent values and update sliders."""
+
         if self.serial_monitor.Status == "Connected":
+
             try:
                 ser = serial.Serial(self.serial_monitor.last_port, 115200, timeout=1)
-                self.serial_monitor.Packet_Serial(0x22)  # read request
+
+                # Request read
+                self.serial_monitor.Packet_Serial(0x22)
                 ser.write(self.serial_monitor.packet)
                 ser.flush()
                 time.sleep(0.2)
+
+                # Get response
                 response = ser.read(64)
+
                 if len(response) == 64:
                     unpacked = struct.unpack("<dddddddd", response)
                     (
@@ -669,31 +692,55 @@ class PacemakerGUI:
                         arp,
                     ) = unpacked
 
-                    # Update ParameterManager permanent values
                     pm = self.param_mgr
-                    pm.parameter_values["Lower Rate Limit"][4] = lrl
-                    pm.parameter_values["Upper Rate Limit"][4] = url
-                    pm.parameter_values["Atrial Amplitude"][4] = atrial_amp
-                    pm.parameter_values["Atrial Pulse Width"][4] = atrial_pw
-                    pm.parameter_values["Ventricular Amplitude"][4] = ventricular_amp
-                    pm.parameter_values["Ventricular Pulse Width"][4] = ventricular_pw
-                    pm.parameter_values["VRP"][4] = vrp
-                    pm.parameter_values["ARP"][4] = arp
+                    new_values = {
+                        "Lower Rate Limit": lrl,
+                        "Upper Rate Limit": url,
+                        "Atrial Amplitude": atrial_amp,
+                        "Atrial Pulse Width": atrial_pw,
+                        "Ventricular Amplitude": ventricular_amp,
+                        "Ventricular Pulse Width": ventricular_pw,
+                        "VRP": vrp,
+                        "ARP": arp,
+                    }
 
-                    # Update sliders
-                    for param, (scale, entry, var, toggle, toggle_var) in self.sliders.items():
-                        if param in pm.parameter_values:
-                            if toggle_var and toggle_var.get():
-                                continue  # skip disabled sliders
-                            new_val = pm.parameter_values[param][4]
+                    # Update pm values
+                    for key, val in new_values.items():
+                        pm.parameter_values[key][4] = val
+
+                    # --- GUI UPDATE ---
+                    for param, widgets in self.sliders.items():
+                        scale, entry, var, toggle, toggle_var = widgets
+
+                        if toggle_var and toggle_var.get():
+                            continue  # Skip if disabled
+
+                        # Skip if user is dragging
+                        if hasattr(scale, "user_is_dragging") and scale.user_is_dragging:
+                            continue
+
+                        if param in new_values:
+                            new_val = new_values[param]
+
+                            # Update tk variable
                             var.set(new_val)
+
+                            # Update actual slider position
+                            scale.set(new_val)
+
+                            # Update entry box if needed
+                            try:
+                                entry.delete(0, "end")
+                                entry.insert(0, str(round(new_val, 3)))
+                            except:
+                                pass
+
             except Exception as e:
                 print("Error updating from pacemaker:", e)
-        # Schedule next poll
+
+        # Poll again
         if hasattr(self, 'root') and self.root:
             self.root.after(500, self.update_from_pacemaker)
-
-
 
 
     #creates a new report of the type given (Bradycardia or Temporary)
