@@ -55,53 +55,67 @@ Ventricular Sensitivity**           [0, 0, 5, 0, 0]                       0.1   
 
 ############################## Serial ##############################
 
+
 class SerialMonitor:
+    def __init__(self, param_mgr=None):
+        self.last_port = None  # Stores last connection
+        self.Status = "Disconnected"  # Default status is disconnected
+        self.Port_Description = "JLink CDC UART Port"  # Pacemaker description
+        self.param_mgr = param_mgr  # <-- store reference
 
-    def __init__(self):
-        self.last_port = None  #Stores last connection
-        self.Status = "Disconnected" #Default status is disconnected
-        self.Port_Description = "JLink CDC UART Port" #Pacemaker decsription
-
-        #Start monitor thread (daemon so it won't block program exit)
-        self.thread = threading.Thread(target=self.Monitor_ports, daemon=True) #Allows to run while main code runs
+        # Start monitor thread (daemon so it won't block program exit)
+        self.thread = threading.Thread(target=self.Monitor_ports, daemon=True)
         self.thread.start()
 
     def On_Connect(self, port):
-        ser = serial.Serial(port, 115200, timeout=1)  #Connects serial
-        print("Connected to", ser.name)
         try:
-            # Optional: read response if device echoes back
-            response = ser.read(30)  # Expect 11 bytes if echo
-            if len(response) == 30: #If same bytes sent back
-                unpacked = struct.unpack("<BBffffffHH", response) #Unpacks the packet
+            ser = serial.Serial(port, 115200, timeout=5)  # Connects serial
+            print("Connected to", ser.name)
+            
+            # Send read request packet
+            if self.param_mgr:
+                self.Packet_Serial(0x22, self.param_mgr)
+                ser.write(self.packet)
+                ser.flush()
+                print("Read request sent successfully.")
+            else:
+                print("Warning: No ParameterManager attached; skipping Read_Request")
+
+            time.sleep(0.5)
+            response = ser.read(64)  # Expect 64 bytes if echo
+            print(f"Received {len(response)} bytes:", response.hex())
+            if len(response) == 64:  # If same bytes sent back
+                unpacked = struct.unpack("<dddddddd", response)  # Unpacks the packet
                 print("Unpacked:", unpacked)
                 (
-                sync,
-                fn_code,
-                lrl,
-                url,
-                atrial_amp,
-                atrial_pw,
-                ventricular_amp,
-                ventricular_pw,
-                vrp,
-                arp
+                    lrl,
+                    url,
+                    atrial_amp,
+                    atrial_pw,
+                    ventricular_amp,
+                    ventricular_pw,
+                    vrp,
+                    arp,
                 ) = unpacked
-                param_mgr.parameter_values["Lower Rate Limit"][4] = lrl
-                param_mgr.parameter_values["Upper Rate Limit"][4] = url
-                param_mgr.parameter_values["Atrial Amplitude"][4] = atrial_amp
-                param_mgr.parameter_values["Atrial Pulse Width"][4] = atrial_pw
-                param_mgr.parameter_values["Ventricular Amplitude"][4] = ventricular_amp
-                param_mgr.parameter_values["Ventricular Pulse Width"][4] = ventricular_pw
-                param_mgr.parameter_values["VRP"][4] = vrp
-                param_mgr.parameter_values["ARP"][4] = arp
 
+                if self.param_mgr is None:
+                    print("Warning: No ParameterManager attached; cannot write received values")
+                else:
+                    pm = self.param_mgr
+                    pm.parameter_values["Lower Rate Limit"][4] = lrl
+                    pm.parameter_values["Upper Rate Limit"][4] = url
+                    pm.parameter_values["Atrial Amplitude"][4] = atrial_amp
+                    pm.parameter_values["Atrial Pulse Width"][4] = atrial_pw
+                    pm.parameter_values["Ventricular Amplitude"][4] = ventricular_amp
+                    pm.parameter_values["Ventricular Pulse Width"][4] = ventricular_pw
+                    pm.parameter_values["VRP"][4] = vrp
+                    pm.parameter_values["ARP"][4] = arp
             else:
                 print("Received incomplete packet")
             ser.close()
         except serial.SerialException as e:
             print(f"Serial Port Error: {e}")
-
+    
     def Monitor_ports(self):
         while True: #Continuously checks
             ports = list(list_ports.comports()) #Collects and stores ports in a list
@@ -131,56 +145,75 @@ class SerialMonitor:
                 self.Status = "Disconnected"
             time.sleep(1)
 
-    def Write_Serial(self, param_mgr):
-        self.Packet_Serial(param_mgr) #Set up packet first
+    def Write_Serial(self, param_mgr=None):
+        pm = param_mgr or self.param_mgr  # <-- default to stored reference
+        if pm is None:
+            print("Write_Serial: No ParameterManager provided/attached.")
+            return
+        self.Packet_Serial(0x55, pm)
         try:
             ser = serial.Serial(self.last_port, 115200, timeout=1)
-            time.sleep(2) 
-            ser.write(self.packet) #Writes packet
+            time.sleep(2)
+            ser.write(self.packet)  # Writes packet
             ser.flush()
             print("Packet sent successfully.")
             ser.close()
         except serial.SerialException as e:
             print(f"Serial Port Error: {e}")
+        
 
-    def Packet_Serial(self, param_mgr):
-        #Packet Parameters - 4(B) + 16(f) + 4(H) = 24 bytes
+    def Read_Request(self, param_mgr=None): # NOT USED RIGHT NOW
+        pm = param_mgr or self.param_mgr  # <-- default to stored reference
+        if pm is None:
+            print("Read_Request: No ParameterManager provided/attached.")
+            return
+        self.Packet_Serial(0x22, pm)
+        try:
+            ser = serial.Serial(self.last_port, 115200, timeout=1)
+            time.sleep(2)
+            ser.write(self.packet)  # Writes packet
+            ser.flush()
+            print("Read request sent successfully.")
+            ser.close()
+        except serial.SerialException as e:
+            print(f"Serial Port Error: {e}")
+
+    def Packet_Serial(self, function_code, param_mgr=None):
+        pm = param_mgr or self.param_mgr
+        if pm is None:
+            raise ValueError("Packet_Serial: ParameterManager is required")
+
+        # Packet Parameters - using 2x uint8 + 8x float64 = 66 bytes (matches your unpack)
         self.Sync = 0x16
-        self.FN_Code = 0x55  # 0x55 setting params, 0x22 echo
-        self.Lower_Rate_Limit = param_mgr.parameter_values["Lower Rate Limit"][4]
-        self.Upper_Rate_Limit = param_mgr.parameter_values["Upper Rate Limit"][4]
-        self.Atrial_Amplitude = param_mgr.parameter_values["Atrial Amplitude"][4]
-        self.Atrial_Pulse_Width = param_mgr.parameter_values["Atrial Pulse Width"][4]
-        self.Ventricular_Amplitude = param_mgr.parameter_values["Ventricular Amplitude"][4]
-        self.Ventricular_Pulse_Width = param_mgr.parameter_values["Ventricular Pulse Width"][4]
-        self.VRP = param_mgr.parameter_values["VRP"][4]
-        self.ARP = param_mgr.parameter_values["ARP"][4]
-        self.Atrial_Sensitivity = param_mgr.parameter_values["Atrial Sensitivity"][4]
-        self.Ventricular_Sensitivity = param_mgr.parameter_values["Ventricular Sensitivity"][4]
+        self.FN_Code = function_code  # 0x55 setting params, 0x22 echo
 
-        #Build packet: < = little-endian, B=uint8, f=float32, H=uint16
+        self.Lower_Rate_Limit = pm.parameter_values["Lower Rate Limit"][4]
+        self.Upper_Rate_Limit = pm.parameter_values["Upper Rate Limit"][4]
+        self.Atrial_Amplitude = pm.parameter_values["Atrial Amplitude"][4]
+        self.Atrial_Pulse_Width = pm.parameter_values["Atrial Pulse Width"][4]
+        self.Ventricular_Amplitude = pm.parameter_values["Ventricular Amplitude"][4]
+        self.Ventricular_Pulse_Width = pm.parameter_values["Ventricular Pulse Width"][4]
+        self.VRP = pm.parameter_values["VRP"][4]
+        self.ARP = pm.parameter_values["ARP"][4]
+        # Sensitivities exist in pm but are not included in the current packet
+
+        # Build packet with doubles, to match the 66-byte expectation and your unpack format
         self.packet = struct.pack(
-        "<BBffffffHH",
-        int(self.Sync),
-        int(self.FN_Code),
-        float(self.Lower_Rate_Limit),
-        float(self.Upper_Rate_Limit),
-        float(self.Atrial_Amplitude),
-        float(self.Atrial_Pulse_Width),
-        float(self.Ventricular_Amplitude),
-        float(self.Ventricular_Pulse_Width),
-        int(self.VRP),
-        int(self.ARP)
+            "<BBdddddddd",
+            int(self.Sync),
+            int(self.FN_Code),
+            float(self.Lower_Rate_Limit),
+            float(self.Upper_Rate_Limit),
+            float(self.Atrial_Amplitude),
+            float(self.Atrial_Pulse_Width),
+            float(self.Ventricular_Amplitude),
+            float(self.Ventricular_Pulse_Width),
+            float(self.VRP),
+            float(self.ARP),
         )
-        """
-        self.packet = struct.pack("<BBffffffHH", self.Sync, self.FN_Code, self.Lower_Rate_Limit,
-                             self.Upper_Rate_Limit, self.Atrial_Amplitude, self.Atrial_Pulse_Width,
-                             self.Ventricular_Amplitude, self.Ventricular_Pulse_Width, self.VRP, self.ARP)
-                                  #self.Atrial_Sensitivity, self.Ventricular_Sensitivity)
-        """
-            
-    def stop(self):
-        pass
+        print(f"Packet ({len(self.packet)} bytes):", " ".join(f"{b:02X}" for b in self.packet))
+
+
 
 ############################## Parameters / Data ##############################
 
@@ -282,8 +315,8 @@ class PacemakerGUI:
 
     def __init__(self):
         # Initialize managers
-        self.serial_monitor = SerialMonitor()
         self.param_mgr = ParameterManager()
+        self.serial_monitor = SerialMonitor(self.param_mgr)
         self.user_mgr = UserManager()
         
 
