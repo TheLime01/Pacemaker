@@ -1,3 +1,4 @@
+
 from tkinter import *
 import tkinter as tk
 from tkinter import ttk
@@ -9,41 +10,45 @@ from serial.tools import list_ports
 import time
 import threading
 import struct
+from collections import deque
+from matplotlib.figure import Figure
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 
 
 from tkinter import font
 
 '''
-Issues
+Questions/Issues
 
-Stuff to work on
 - make it look better
-- Assurance case - weeks , 10-11 slides, etc
+- Assurance case - weeks , 10-11 slides, etc (can be seperate (i.e DCM and Pacemaker) or can be together
 
 
-Questions
- - How the Off programmable parameter work? (already implemented but make sure)
- - The sliders only increment by the amount on the PACEMAKER doc, but should the box only take in certain values too?
+Stuff we still need to do:
+    1) send the new modes and parameters (need to wait for pacemaker team)
+    2) egram graphs?
+    3) pacemaker needs to account for the Off parameter
+    4) maybe need to save the mode on the pacemaker too
+
+
 
 '''
-
-
 
 
 '''
 Parameters Name                              Range                     Increment              Type
 
-Lower Rate Limit                    [30, 60, 175, 60, 60]                  5                   Int
-Upper Rate Limit                    [50, 120, 175, 120, 120]               5                   Int
-Atrial Amplitude*                   [0.1, 5, 5, 5, 5]                     0.1                  Double
-Atrial Pulse Width*                 [1, 1, 30, 1, 1]                       1                   Int
-Ventricular Amplitude*              [0.1, 5, 5, 5, 5]                     0.1                  Double
-Ventricular Pulse Width*            [1, 30, 1, 1, 1]                       1                   Int
-VRP                                 [150, 320, 500, 320, 320]              10                  Int
-ARP                                 [150, 250, 500, 250, 250]              10                  Int
-Atrial Sensitivity**                [0, 0, 5, 0, 0]                       0.1                  Double
-Ventricular Sensitivity**           [0, 0, 5, 0, 0]                       0.1                  Double
+Lower Rate Limit                    [30, 60, 175, 60, 60]                  5                   
+Upper Rate Limit                    [50, 120, 175, 120, 120]               5                   
+Atrial Amplitude*                   [0.1, 5, 5, 5, 5]                     0.1                  
+Atrial Pulse Width*                 [1, 1, 30, 1, 1]                       1                   
+Ventricular Amplitude*              [0.1, 5, 5, 5, 5]                     0.1                  
+Ventricular Pulse Width*            [1, 30, 1, 1, 1]                       1                   
+VRP                                 [150, 320, 500, 320, 320]              10                  
+ARP                                 [150, 250, 500, 250, 250]              10                  
+Atrial Sensitivity**                [0, 0, 5, 0, 0]                       0.1                  
+Ventricular Sensitivity**           [0, 0, 5, 0, 0]                       0.1                  
 
 
 
@@ -214,12 +219,65 @@ class SerialMonitor:
         print(f"Packet ({len(self.packet)} bytes):", " ".join(f"{b:02X}" for b in self.packet))
 
 
+    def Read_Device_Values(self):
+        """
+        Reads the current device values from the SerialMonitor's attached ParameterManager.
+        Returns a dict {param_name: value}.
+        """
+        if self.Status != "Connected":
+            print("Read_Device_Values: Device not connected, returning current ParameterManager values")
+            return {param: vals[4] for param, vals in self.param_mgr.parameter_values.items()}
+
+        # If device connected, attempt to read (reuse On_Connect logic)
+        try:
+            ser = serial.Serial(self.last_port, 115200, timeout=1)
+            self.Packet_Serial(0x22, self.param_mgr)  # request current values
+            ser.write(self.packet)
+            ser.flush()
+            time.sleep(0.5)
+            response = ser.read(64)
+            ser.close()
+            if len(response) == 64:
+                unpacked = struct.unpack("<dddddddd", response)
+                (
+                    lrl, url, atrial_amp, atrial_pw,
+                    ventricular_amp, ventricular_pw, vrp, arp
+                ) = unpacked
+
+                values = {
+                    "Lower Rate Limit": lrl,
+                    "Upper Rate Limit": url,
+                    "Atrial Amplitude": atrial_amp,
+                    "Atrial Pulse Width": atrial_pw,
+                    "Ventricular Amplitude": ventricular_amp,
+                    "Ventricular Pulse Width": ventricular_pw,
+                    "VRP": vrp,
+                    "ARP": arp
+                }
+
+                # Update your ParameterManager
+                for param, val in values.items():
+                    self.param_mgr.parameter_values[param][4] = val
+
+                return values
+            else:
+                print("Read_Device_Values: Incomplete response, returning current values")
+                return {param: vals[4] for param, vals in self.param_mgr.parameter_values.items()}
+
+        except serial.SerialException as e:
+            print("Read_Device_Values Serial Error:", e)
+            return {param: vals[4] for param, vals in self.param_mgr.parameter_values.items()}
+
+
 
 ############################## Parameters / Data ##############################
 
 class ParameterManager:
 
-    def __init__(self):
+    def __init__(self, filename="parameters.json"):
+
+        self.filename = os.path.join(os.path.dirname(__file__), "parameters.json")
+
         self.Device_model = "Pacemaker"
         self.Device_serial_number = "HOOO25"
         self.DCM_serial_number = "400325598"
@@ -240,21 +298,62 @@ class ParameterManager:
             "VVIR": ["Lower Rate Limit", "Upper Rate Limit", "Ventricular Amplitude", "Ventricular Pulse Width", "VRP", "Ventricular Sensitivity"]
         }
 
+        
         # Mode and parameter values
         self.Mode = ["AOO", "AOO"]  #0=temporary paramater, 1=permanent parameter
-        self.parameter_values = { #min, nominal, max, temp, permanent
-            "Lower Rate Limit": [30, 60, 175, 60, 60],
-            "Upper Rate Limit": [50, 120, 175, 120, 120],
-            "Atrial Amplitude": [0.1, 5, 5, 5, 5],
-            "Atrial Pulse Width": [1, 1, 30, 1, 1],
-            "Ventricular Amplitude": [0.1, 5, 5, 5, 5],
-            "Ventricular Pulse Width": [1, 30, 1, 1, 1],
-            "VRP": [150, 320, 500, 320, 320],
-            "ARP": [150, 250, 500, 250, 250],
-            "Atrial Sensitivity": [0, 0, 5, 0, 0],
-            "Ventricular Sensitivity": [0, 0, 5, 0, 0]
+        self.parameter_values = { #min, nominal, max, temp, permanent, toggle
+            "Lower Rate Limit": [30, 60, 175, 60, 60, False],
+            "Upper Rate Limit": [50, 120, 175, 120, 120, False],
+            "Atrial Amplitude": [0.1, 5, 5, 5, 5, True],
+            "Atrial Pulse Width": [1, 1, 30, 1, 1, False],
+            "Ventricular Amplitude": [0.1, 5, 5, 5, 5, True],
+            "Ventricular Pulse Width": [1, 1, 30, 1, 1, False],
+            "VRP": [150, 320, 500, 320, 320, False],
+            "ARP": [150, 250, 500, 250, 250, False],
+            "Atrial Sensitivity": [0, 0, 5, 0, 0, False],
+            "Ventricular Sensitivity": [0, 0, 5, 0, 0, False]
         }
 
+
+        self.load_parameters()
+
+
+        #Save programmable parameter between uses
+
+    def save_parameters_perm(self):
+
+        print("Saving parameters to file...")
+
+        data = {
+            "last_mode": self.Mode[1],
+            "parameter_values": self.parameter_values
+        }
+
+        with open(self.filename, "w") as file:
+            json.dump(data, file, indent=4)
+
+        print("Parameters saved to", self.filename)
+
+
+    def load_parameters(self):
+        if os.path.exists(self.filename):
+            with open(self.filename, "r") as f:
+                data = json.load(f)
+            if "last_mode" in data:
+                self.Mode[0] = self.Mode[1] = data["last_mode"]
+            if "parameter_values" in data:
+                self.parameter_values = data["parameter_values"]
+                # Ensure toggle value exists for every parameter
+                for param, vals in self.parameter_values.items():
+                    if len(vals) < 6:
+                        # Set toggle: True for amplitudes, False otherwise
+                        if "Amplitude" in param:
+                            vals.append(True)
+                        else:
+                            vals.append(False)
+            print("Parameters loaded from", self.filename)
+        else:
+            print("No parameters file found, using defaults.")
 
 ############################## User management ##############################
 
@@ -309,6 +408,108 @@ class UserManager:
             return True, "New user added, please sign in!"
 
 
+############################## Egram Graphs ##############################
+
+class EgramViewer(tk.Toplevel):
+
+    def __init__(self, parent, time_data, voltageA_data, voltageV_data):
+        super().__init__(parent)
+        self.title("Egram Data Viewer")
+        self.geometry("800x600")
+        self.bg_colour = "#CBC3E3"
+        self.config(background=self.bg_colour)
+        try:
+            self.iconphoto(True, PhotoImage(file="Pacemaker Logo.png"))
+        except Exception:
+            pass
+
+        # max length for deques
+        self.maxlen = 4000
+
+        # initialize deques
+        self.time_data = deque(time_data, maxlen=self.maxlen)
+        self.voltageA_data = deque(voltageA_data, maxlen=self.maxlen)
+        self.voltageV_data = deque(voltageV_data, maxlen=self.maxlen)
+
+        # flags for showing graphs
+        self.show_atrium = True
+        self.show_ventricle = True
+
+        # plot buttons
+        button_frame = tk.Frame(self, bg=self.bg_colour)
+        button_frame.pack(side=tk.TOP, pady=10)
+
+        self.atrium_btn = tk.Button(button_frame, text="Toggle Atrium", command=self.toggle_atrium)
+        self.atrium_btn.pack(side=tk.LEFT, padx=8)
+
+        self.ventricle_btn = tk.Button(button_frame, text="Toggle Ventricle", command=self.toggle_ventricle)
+        self.ventricle_btn.pack(side=tk.LEFT, padx=8)
+
+        # figure and subplots
+        self.fig = Figure(figsize=(8, 6), dpi=100, constrained_layout=True)
+        self.axA = self.fig.add_subplot(211)
+        self.axV = self.fig.add_subplot(212)
+
+        self.canvas = FigureCanvasTkAgg(self.fig, master=self)
+        self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+
+        self.draw_graphs()
+
+    def toggle_atrium(self):
+        self.show_atrium = not self.show_atrium
+        self.draw_graphs()
+
+    def toggle_ventricle(self):
+        self.show_ventricle = not self.show_ventricle
+        self.draw_graphs()
+
+    def draw_graphs(self):
+        self.axA.clear()
+        self.axV.clear()
+
+        if len(self.time_data) == 0:
+            self.canvas.draw()
+            return
+
+        # compute scrolling window edges
+        last_time = self.time_data[-1]
+        left_edge = last_time - (self.maxlen - 1)
+
+        # atrium plot
+        if self.show_atrium:
+            self.axA.plot(self.time_data, self.voltageA_data, color="blue")
+            self.axA.set_title("Atrium Signals")
+            self.axA.set_xlabel("Time (ms)")
+            self.axA.set_ylabel("Voltage (mV)")
+            self.axA.grid(True)
+            self.axA.set_xlim(left_edge, last_time)
+            self.axA.set_visible(True)
+        else:
+            self.axA.set_visible(False)
+
+        # ventricle plot
+        if self.show_ventricle:
+            self.axV.plot(self.time_data, self.voltageV_data, color="red")
+            self.axV.set_title("Ventricle Signals")
+            self.axV.set_xlabel("Time (ms)")
+            self.axV.set_ylabel("Voltage (mV)")
+            self.axV.grid(True)
+            self.axV.set_xlim(left_edge, last_time)
+            self.axV.set_visible(True)
+        else:
+            self.axV.set_visible(False)
+
+        self.canvas.draw()
+
+    def update_graph(self, new_time, new_voltageA=None, new_voltageV=None):
+        self.time_data.append(new_time)
+        if new_voltageA is not None:
+            self.voltageA_data.append(new_voltageA)
+        if new_voltageV is not None:
+            self.voltageV_data.append(new_voltageV)
+        self.draw_graphs()
+
+
 ############################## GUI ##############################
 
 class PacemakerGUI:
@@ -324,8 +525,6 @@ class PacemakerGUI:
         self.Window = Tk()  #Initiates a window
         self.Window.geometry("1080x1080") #Sets size of the window
         self.Window.title("Pacemaker") #Sets the title
-
-        self.user_editing = False
 
 
         self.high_contrast = False
@@ -386,13 +585,19 @@ class PacemakerGUI:
             #read latest status from serial_monitor
             self.Status = self.serial_monitor.Status
             self.Status_button.config(text=self.Status)
+      
+            # Enable or disable save button based on connection
+            if self.Status == "Connected":
+                self.save_button.config(state="normal")
+            else:
+                self.save_button.config(state="disabled")
 
-            #schedule again
-            try:
-                self.root.after(100, self.update_status_button)
-            except Exception:
-                #If root was closed, ignore
-                pass
+        #schedule again
+        try:
+            self.root.after(100, self.update_status_button)
+        except Exception:
+            #If root was closed, ignore
+            pass
 
     def Successful_login(self):  #Gives access to my account page
 
@@ -435,16 +640,23 @@ class PacemakerGUI:
         # Status button
         self.Status_button = Button(self.root, text=self.Status, font=self.global_font, fg='black', bg="white")
         self.Status_button.place(x=15, y=725)
-        self.update_status_button()
 
         # Build mode selector and sliders
         self.combo_box_create()  #makes the drop-down menu to choose mode
         self.initializes_sliders()  #makes all the sliders
-        self.select_mode(self.param_mgr.Mode[0])  #sets the starting mode (AOO) with correct states of sliders
-        self.update_temp_values()  #keeps updating the values in the slides
 
-        save_button = Button(self.root, text="Save Parameters", command=self.save_parameters, font=self.global_font)
-        save_button.place(x=495, y=300)
+        self.param_mgr.load_parameters()
+        self.combo_box.set(self.param_mgr.Mode[1])
+        self.select_mode(self.param_mgr.Mode[1]) #sets the starting mode (AOO)
+
+        self.sync_sliders_with_device() # get info from device and set the sliders to it
+
+        
+        self.update_temp_values() #keeps updating the values in the slides
+
+        
+        self.save_button = Button(self.root, text="Save Parameters", command=self.save_parameters, font=self.global_font)
+        self.save_button.place(x=495, y=300)
 
         temp_report_button = Button(self.root, text="Temporary Report", command=lambda: self.export_report("Temporary"), font=self.global_font)
         temp_report_button.place(x=490, y=400)
@@ -452,8 +664,40 @@ class PacemakerGUI:
         Bradycardia_report_button = Button(self.root, text="Bradycardia Report", command=lambda: self.export_report("Bradycardia"), font=self.global_font)
         Bradycardia_report_button.place(x=490, y=450)
 
-        self.update_from_pacemaker()
+        self.graph_button = Button(self.root, text="View Egram Graphs", command=self.open_graph_window, font=self.global_font)
+        self.graph_button.place(x=490, y=500)
 
+        self.update_status_button()
+
+    
+    def open_graph_window(self):
+        # disable combo box, save button, sliders and entry boxes
+        self.combo_box.config(state="disabled")
+        self.save_button.config(state="disabled")
+        self.graph_button.config(state="disabled")
+        for param, (scale, entry, _, toggle, _) in self.sliders.items():
+            scale.config(state="disabled")
+            entry.config(state="disabled")
+            if toggle:
+                toggle.config(state="disabled")
+
+        # FAKE DATA FOR NOW!!!!!!
+        time_data = [i for i in range(4000)]
+        voltageA_data = [0 for _ in range(3250)] + [0.5 for _ in range(250)] + [-0.2 for _ in range(250)] + [0 for _ in range(250)]
+        voltageV_data = [0 for _ in range(3250)] + [-0.5 for _ in range(300)] + [0.2 for _ in range(200)] + [0 for _ in range(250)]
+
+        # Create egram graph window
+        graph_window = EgramViewer(self.root, time_data, voltageA_data, voltageV_data)
+
+        # When graph window closes, re-enable sliders
+        def on_close():
+            self.combo_box.config(state="readonly")
+            self.save_button.config(state="normal")
+            self.graph_button.config(state="normal")
+            self.select_mode(self.combo_box.get())
+            graph_window.destroy()
+
+        graph_window.protocol("WM_DELETE_WINDOW", on_close)
 
 
     def combo_box_create(self):  #function to make dropdown menu
@@ -523,23 +767,8 @@ class PacemakerGUI:
 
         else:
             scale = tk.Scale(parent, from_=from_, to=to, orient='horizontal', resolution=10, variable=var, showvalue=False, length=150)
-
-
-        def slider_press(event):
-            event.widget.user_is_dragging = True
-
-        def slider_release(event):
-            event.widget.user_is_dragging = False
-
-        scale.bind("<Button-1>", slider_press)
-        scale.bind("<ButtonRelease-1>", slider_release)
-        scale.user_is_dragging = False
-
-        
-
-
-        
-        
+            
+            
         # resolution - step size of decimal
         # variable=var --> scale widget is linked to var, meaning moving the slider updates var automatically
         # hides the default value display
@@ -638,109 +867,63 @@ class PacemakerGUI:
 
 
     def update_temp_values(self):
-        
+
         for param, (scale, entry, var, toggle, toggle_var) in self.sliders.items():
-            self.param_mgr.parameter_values[param][3] = var.get()  # temp value
+            self.param_mgr.parameter_values[param][3] = var.get()  # only store temp value locally
 
         self.param_mgr.Mode[0] = self.combo_box.get()
 
-        # Optional: auto-send to pacemaker
-        if self.serial_monitor.Status == "Connected":
-            # debounce to prevent spamming serial
-            if not hasattr(self, "_last_sent") or time.time() - self._last_sent > 1:
-                self.serial_monitor.Write_Serial(self.param_mgr)
-                self._last_sent = time.time()
-
-        # schedule again
-        if hasattr(self, 'root') and self.root:
+        try:
             self.root.after(500, self.update_temp_values)
+        except Exception:
+            pass
+        
 
     def save_parameters(self):
         for param in self.param_mgr.parameter_values:
-            self.param_mgr.parameter_values[param][4] = self.param_mgr.parameter_values[param][3]  #save temp as permanent
+            # Save temp value as permanent
+            self.param_mgr.parameter_values[param][4] = self.param_mgr.parameter_values[param][3]
 
+            # Save toggle value if the slider has a toggle (some may not)
+            if param in self.sliders:
+                scale, entry, var, toggle, toggle_var = self.sliders[param]
+                if toggle:
+                    self.param_mgr.parameter_values[param][5] = toggle_var.get()
+        
+        # Save mode
         self.param_mgr.Mode[1] = self.combo_box.get()
+
+        # Write to file
+        self.param_mgr.save_parameters_perm()
+
+        # Optionally send to device
         self.serial_monitor.Write_Serial(self.param_mgr)
 
+################## Pacemaker Stuff #############################
 
-    def update_from_pacemaker(self):
-
+    def sync_sliders_with_device(self):
+        """Sets sliders to permanent values from pacemaker if connected, else from saved parameters."""
         if self.serial_monitor.Status == "Connected":
+            values = self.serial_monitor.Read_Device_Values()
+            for param, val in values.items():
+                if param in self.param_mgr.parameter_values:
+                    self.param_mgr.parameter_values[param][4] = val  # permanent
+                    self.param_mgr.parameter_values[param][3] = val  # temporary
+                    if param in self.sliders:
+                        scale, entry, var, toggle, toggle_var = self.sliders[param]
+                        var.set(val)
+        else:
+            # Device not connected: use saved permanent values
+            for param, val in self.param_mgr.parameter_values.items():
+                if param in self.sliders:
+                    scale, entry, var, toggle, toggle_var = self.sliders[param]
+                    var.set(val[3])  # temporary value
+                    if toggle_var is not None:
+                        toggle_var.set(val[5])  # restore toggle state
 
-            try:
-                ser = serial.Serial(self.serial_monitor.last_port, 115200, timeout=1)
 
-                # Request read
-                self.serial_monitor.Packet_Serial(0x22)
-                ser.write(self.serial_monitor.packet)
-                ser.flush()
-                time.sleep(0.2)
 
-                # Get response
-                response = ser.read(64)
 
-                if len(response) == 64:
-                    unpacked = struct.unpack("<dddddddd", response)
-                    (
-                        lrl,
-                        url,
-                        atrial_amp,
-                        atrial_pw,
-                        ventricular_amp,
-                        ventricular_pw,
-                        vrp,
-                        arp,
-                    ) = unpacked
-
-                    pm = self.param_mgr
-                    new_values = {
-                        "Lower Rate Limit": lrl,
-                        "Upper Rate Limit": url,
-                        "Atrial Amplitude": atrial_amp,
-                        "Atrial Pulse Width": atrial_pw,
-                        "Ventricular Amplitude": ventricular_amp,
-                        "Ventricular Pulse Width": ventricular_pw,
-                        "VRP": vrp,
-                        "ARP": arp,
-                    }
-
-                    # Update pm values
-                    for key, val in new_values.items():
-                        pm.parameter_values[key][4] = val
-
-                    # --- GUI UPDATE ---
-                    for param, widgets in self.sliders.items():
-                        scale, entry, var, toggle, toggle_var = widgets
-
-                        if toggle_var and toggle_var.get():
-                            continue  # Skip if disabled
-
-                        # Skip if user is dragging
-                        if hasattr(scale, "user_is_dragging") and scale.user_is_dragging:
-                            continue
-
-                        if param in new_values:
-                            new_val = new_values[param]
-
-                            # Update tk variable
-                            var.set(new_val)
-
-                            # Update actual slider position
-                            scale.set(new_val)
-
-                            # Update entry box if needed
-                            try:
-                                entry.delete(0, "end")
-                                entry.insert(0, str(round(new_val, 3)))
-                            except:
-                                pass
-
-            except Exception as e:
-                print("Error updating from pacemaker:", e)
-
-        # Poll again
-        if hasattr(self, 'root') and self.root:
-            self.root.after(500, self.update_from_pacemaker)
 
 
     #creates a new report of the type given (Bradycardia or Temporary)
