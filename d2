@@ -13,9 +13,7 @@ import struct
 from collections import deque
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-
-
-
+import os
 from tkinter import font
 
 '''
@@ -585,12 +583,6 @@ class PacemakerGUI:
             #read latest status from serial_monitor
             self.Status = self.serial_monitor.Status
             self.Status_button.config(text=self.Status)
-      
-            # Enable or disable save button based on connection
-            if self.Status == "Connected":
-                self.save_button.config(state="normal")
-            else:
-                self.save_button.config(state="disabled")
 
         #schedule again
         try:
