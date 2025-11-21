@@ -70,6 +70,15 @@ Ventricular Sensitivity**           [0, 0, 5, 0, 0]                       0.1
 
 class SerialMonitor:
     def __init__(self, param_mgr=None):
+        self.lrl = "?"
+        self.url = "?"
+        self.atrial_amp = "?"
+        self.atrial_pw = "?"
+        self.ventricular_amp = "?"
+        self.ventricular_pw = "?"
+        self.vrp = "?"
+        self.arp = "?"
+        
         self.last_port = None  # Stores last connection
         self.Status = "Disconnected"  # Default status is disconnected
         self.Port_Description = "JLink CDC UART Port"  # Pacemaker description
@@ -83,7 +92,7 @@ class SerialMonitor:
         try:
             ser = serial.Serial(port, 115200, timeout=5)  # Connects serial
             print("Connected to", ser.name)
-            
+            '''
             # Send read request packet
             if self.param_mgr:
                 self.Packet_Serial(0x22, self.param_mgr)
@@ -98,6 +107,7 @@ class SerialMonitor:
             print(f"Received {len(response)} bytes:", response.hex())
             if len(response) == 64:  # If same bytes sent back
                 unpacked = struct.unpack("<dddddddd", response)  # Unpacks the packet
+                global lrl, url, atrial_amp, atrial_pw, ventricular_amp, ventricular_pw, vrp, arp
                 print("Unpacked:", unpacked)
                 (
                     lrl,
@@ -125,6 +135,7 @@ class SerialMonitor:
             else:
                 print("Received incomplete packet")
             ser.close()
+            '''
         except serial.SerialException as e:
             print(f"Serial Port Error: {e}")
     
@@ -245,21 +256,22 @@ class SerialMonitor:
             response = ser.read(64)
             ser.close()
             if len(response) == 64:
+            
                 unpacked = struct.unpack("<dddddddd", response)
                 (
-                    lrl, url, atrial_amp, atrial_pw,
-                    ventricular_amp, ventricular_pw, vrp, arp
+                    self.lrl, self.url, self.atrial_amp, self.atrial_pw,
+                    self.ventricular_amp, self.ventricular_pw, self.vrp, self.arp
                 ) = unpacked
 
                 values = {
-                    "Lower Rate Limit": lrl,
-                    "Upper Rate Limit": url,
-                    "Atrial Amplitude": atrial_amp,
-                    "Atrial Pulse Width": atrial_pw,
-                    "Ventricular Amplitude": ventricular_amp,
-                    "Ventricular Pulse Width": ventricular_pw,
-                    "VRP": vrp,
-                    "ARP": arp
+                    "Lower Rate Limit": self.lrl,
+                    "Upper Rate Limit": self.url,
+                    "Atrial Amplitude": self.atrial_amp,
+                    "Atrial Pulse Width": self.atrial_pw,
+                    "Ventricular Amplitude": self.ventricular_amp,
+                    "Ventricular Pulse Width": self.ventricular_pw,
+                    "VRP": self.vrp,
+                    "ARP": self.arp
                 }
 
                 # Update your ParameterManager
@@ -609,6 +621,47 @@ class PacemakerGUI:
         except Exception:
             #If root was closed, ignore
             pass
+        
+    def Read_Pacemaker(self):
+        Serial_Monitor = SerialMonitor()
+        self.Read_window = Toplevel()  #Initiates about window
+        self.Read_window.geometry("300x380")
+        self.Read_window.title("Pacemaker_Data")  #Sets title
+
+        '''
+                    "Atrial Amplitude": atrial_amp,
+                    "Atrial Pulse Width": atrial_pw,
+                    "Ventricular Amplitude": ventricular_amp,
+                    "Ventricular Pulse Width": ventricular_pw,
+                    "VRP": vrp,
+                    "ARP": arp
+        '''
+
+        self.lrl_Label = Label(self.Read_window, text="Lower Rate Limit: " + Serial_Monitor.lrl, font=('Arial', 14), fg='black', bg="white")  #Sets text settings
+        self.lrl_Label.place(x=10, y=10)  #Displays model number text
+
+        self.url_Label = Label(self.Read_window, text="Upper Rate Limit: " + Serial_Monitor.url, font=('Arial', 14), fg='black', bg="white")  #Sets text settings
+        self.url_Label.place(x=10, y=40)  #Displays model number text
+
+        self.atrial_amp_Label = Label(self.Read_window, text="Atrial Amplitude: " + Serial_Monitor.atrial_amp, font=('Arial', 14), fg='black', bg="white")  #Sets text settings
+        self.atrial_amp_Label.place(x=10, y=70)  #Displays model number text
+
+        self.atrial_pw_Label = Label(self.Read_window, text="Atrial Pulse Width: " + Serial_Monitor.atrial_pw, font=('Arial', 14), fg='black', bg="white")  #Sets text settings
+        self.atrial_pw_Label.place(x=10, y=100)  #Displays model number text
+
+        self.ventricular_amp_Label = Label(self.Read_window, text="Ventricular Amplitude: " + Serial_Monitor.ventricular_amp, font=('Arial', 14), fg='black', bg="white")  #Sets text settings
+        self.ventricular_amp_Label.place(x=10, y=70)  #Displays model number text
+
+        self.ventricular_pw_Label = Label(self.Read_window, text="Ventricular Pulse Width: " + Serial_Monitor.ventricular_pw, font=('Arial', 14), fg='black', bg="white")  #Sets text settings
+        self.ventricular_pw_Label.place(x=10, y=100)  #Displays model number text
+
+        self.vrp_Label = Label(self.Read_window, text="VRP: " + Serial_Monitor.vrp, font=('Arial', 14), fg='black', bg="white")  #Sets text settings
+        self.vrp_Label.place(x=10, y=130)  #Displays model number text
+
+        self.arp_Label = Label(self.Read_window, text="ARP: " + Serial_Monitor.arp, font=('Arial', 14), fg='black', bg="white")  #Sets text settings
+        self.arp_Label.place(x=10, y=160)  #Displays model number text
+        
+        self.Read_window.mainloop()  #Displays the about window
 
     def Successful_login(self):  #Gives access to my account page
 
@@ -617,8 +670,7 @@ class PacemakerGUI:
         self.root.title("My Account")
         self.root.geometry("1080x1080")
         self.root.config(background="#CBC3E3")  #Sets colour of background
-
-
+        
 
         ######################## Fonts ###########################
         
@@ -651,6 +703,11 @@ class PacemakerGUI:
         # Status button
         self.Status_button = Button(self.root, text=self.Status, font=self.global_font, fg='black', bg="white")
         self.Status_button.place(x=15, y=725)
+
+        #Read Button
+        self.Read_button = Button(self.root, text="Read Pacemaker", font=self.global_font, fg='black', bg="white")
+        self.Read_button.place(x=490, y=350)
+        self.Read_button.config(command=self.Read_Pacemaker)  #Sets button to quit function
 
         # Build mode selector and sliders
         self.combo_box_create()  #makes the drop-down menu to choose mode
