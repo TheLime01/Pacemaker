@@ -9,6 +9,9 @@ from serial.tools import list_ports
 import time
 import threading
 import struct
+from collections import deque
+from matplotlib.figure import Figure
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 
 
@@ -363,6 +366,108 @@ class UserManager:
             return True, "New user added, please sign in!"
 
 
+############################## Egram Graphs ##############################
+
+class EgramViewer(tk.Toplevel):
+
+    def __init__(self, parent, time_data, voltageA_data, voltageV_data):
+        super().__init__(parent)
+        self.title("Egram Data Viewer")
+        self.geometry("800x600")
+        self.bg_colour = "#CBC3E3"
+        self.config(background=self.bg_colour)
+        try:
+            self.iconphoto(True, PhotoImage(file="Pacemaker Logo.png"))
+        except Exception:
+            pass
+
+        # max length for deques
+        self.maxlen = 4000
+
+        # initialize deques
+        self.time_data = deque(time_data, maxlen=self.maxlen)
+        self.voltageA_data = deque(voltageA_data, maxlen=self.maxlen)
+        self.voltageV_data = deque(voltageV_data, maxlen=self.maxlen)
+
+        # flags for showing graphs
+        self.show_atrium = True
+        self.show_ventricle = True
+
+        # plot buttons
+        button_frame = tk.Frame(self, bg=self.bg_colour)
+        button_frame.pack(side=tk.TOP, pady=10)
+
+        self.atrium_btn = tk.Button(button_frame, text="Toggle Atrium", command=self.toggle_atrium)
+        self.atrium_btn.pack(side=tk.LEFT, padx=8)
+
+        self.ventricle_btn = tk.Button(button_frame, text="Toggle Ventricle", command=self.toggle_ventricle)
+        self.ventricle_btn.pack(side=tk.LEFT, padx=8)
+
+        # figure and subplots
+        self.fig = Figure(figsize=(8, 6), dpi=100, constrained_layout=True)
+        self.axA = self.fig.add_subplot(211)
+        self.axV = self.fig.add_subplot(212)
+
+        self.canvas = FigureCanvasTkAgg(self.fig, master=self)
+        self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+
+        self.draw_graphs()
+
+    def toggle_atrium(self):
+        self.show_atrium = not self.show_atrium
+        self.draw_graphs()
+
+    def toggle_ventricle(self):
+        self.show_ventricle = not self.show_ventricle
+        self.draw_graphs()
+
+    def draw_graphs(self):
+        self.axA.clear()
+        self.axV.clear()
+
+        if len(self.time_data) == 0:
+            self.canvas.draw()
+            return
+
+        # compute scrolling window edges
+        last_time = self.time_data[-1]
+        left_edge = last_time - (self.maxlen - 1)
+
+        # atrium plot
+        if self.show_atrium:
+            self.axA.plot(self.time_data, self.voltageA_data, color="blue")
+            self.axA.set_title("Atrium Signals")
+            self.axA.set_xlabel("Time (ms)")
+            self.axA.set_ylabel("Voltage (mV)")
+            self.axA.grid(True)
+            self.axA.set_xlim(left_edge, last_time)
+            self.axA.set_visible(True)
+        else:
+            self.axA.set_visible(False)
+
+        # ventricle plot
+        if self.show_ventricle:
+            self.axV.plot(self.time_data, self.voltageV_data, color="red")
+            self.axV.set_title("Ventricle Signals")
+            self.axV.set_xlabel("Time (ms)")
+            self.axV.set_ylabel("Voltage (mV)")
+            self.axV.grid(True)
+            self.axV.set_xlim(left_edge, last_time)
+            self.axV.set_visible(True)
+        else:
+            self.axV.set_visible(False)
+
+        self.canvas.draw()
+
+    def update_graph(self, new_time, new_voltageA=None, new_voltageV=None):
+        self.time_data.append(new_time)
+        if new_voltageA is not None:
+            self.voltageA_data.append(new_voltageA)
+        if new_voltageV is not None:
+            self.voltageV_data.append(new_voltageV)
+        self.draw_graphs()
+
+
 ############################## GUI ##############################
 
 class PacemakerGUI:
@@ -438,13 +543,19 @@ class PacemakerGUI:
             #read latest status from serial_monitor
             self.Status = self.serial_monitor.Status
             self.Status_button.config(text=self.Status)
+      
+            # Enable or disable save button based on connection
+            if self.Status == "Connected":
+                self.save_button.config(state="normal")
+            else:
+                self.save_button.config(state="disabled")
 
-            #schedule again
-            try:
-                self.root.after(100, self.update_status_button)
-            except Exception:
-                #If root was closed, ignore
-                pass
+        #schedule again
+        try:
+            self.root.after(100, self.update_status_button)
+        except Exception:
+            #If root was closed, ignore
+            pass
 
     def Successful_login(self):  #Gives access to my account page
 
@@ -487,7 +598,6 @@ class PacemakerGUI:
         # Status button
         self.Status_button = Button(self.root, text=self.Status, font=self.global_font, fg='black', bg="white")
         self.Status_button.place(x=15, y=725)
-        self.update_status_button()
 
         # Build mode selector and sliders
         self.combo_box_create()  #makes the drop-down menu to choose mode
@@ -497,14 +607,12 @@ class PacemakerGUI:
         self.select_mode(self.param_mgr.Mode[0])
         self.update_temp_values()       
 
-
-
         
         #self.select_mode(self.param_mgr.Mode[0])  #sets the starting mode (AOO) with correct states of sliders
         #self.update_temp_values()  #keeps updating the values in the slides
 
-        save_button = Button(self.root, text="Save Parameters", command=self.save_parameters, font=self.global_font)
-        save_button.place(x=495, y=300)
+        self.save_button = Button(self.root, text="Save Parameters", command=self.save_parameters, font=self.global_font)
+        self.save_button.place(x=495, y=300)
 
         temp_report_button = Button(self.root, text="Temporary Report", command=lambda: self.export_report("Temporary"), font=self.global_font)
         temp_report_button.place(x=490, y=400)
@@ -512,6 +620,40 @@ class PacemakerGUI:
         Bradycardia_report_button = Button(self.root, text="Bradycardia Report", command=lambda: self.export_report("Bradycardia"), font=self.global_font)
         Bradycardia_report_button.place(x=490, y=450)
 
+        self.graph_button = Button(self.root, text="View Egram Graphs", command=self.open_graph_window, font=self.global_font)
+        self.graph_button.place(x=490, y=500)
+
+        self.update_status_button()
+
+    
+    def open_graph_window(self):
+        # disable combo box, save button, sliders and entry boxes
+        self.combo_box.config(state="disabled")
+        self.save_button.config(state="disabled")
+        self.graph_button.config(state="disabled")
+        for param, (scale, entry, _, toggle, _) in self.sliders.items():
+            scale.config(state="disabled")
+            entry.config(state="disabled")
+            if toggle:
+                toggle.config(state="disabled")
+
+        # FAKE DATA FOR NOW!!!!!!
+        time_data = [i for i in range(4000)]
+        voltageA_data = [0 for _ in range(3250)] + [0.5 for _ in range(250)] + [-0.2 for _ in range(250)] + [0 for _ in range(250)]
+        voltageV_data = [0 for _ in range(3250)] + [-0.5 for _ in range(300)] + [0.2 for _ in range(200)] + [0 for _ in range(250)]
+
+        # Create egram graph window
+        graph_window = EgramViewer(self.root, time_data, voltageA_data, voltageV_data)
+
+        # When graph window closes, re-enable sliders
+        def on_close():
+            self.combo_box.config(state="readonly")
+            self.save_button.config(state="normal")
+            self.graph_button.config(state="normal")
+            self.select_mode(self.combo_box.get())
+            graph_window.destroy()
+
+        graph_window.protocol("WM_DELETE_WINDOW", on_close)
 
 
     def combo_box_create(self):  #function to make dropdown menu
