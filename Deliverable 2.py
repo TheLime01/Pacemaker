@@ -15,35 +15,39 @@ import struct
 from tkinter import font
 
 '''
-Issues
+Questions/Issues
 
-Stuff to work on
 - make it look better
 - Assurance case - weeks , 10-11 slides, etc
 
+Got the saving to work for the parameters between uses, but
+    1) when the actual pacemaker is plugged out and then plugged back in again it goes to its intial values
+    2) it doesnt save the mode but it'll save the changes made to the other numbers
 
-Questions
+    3) how will it work for different users?
+    4) how will it work for the Off parameter?
+
  - How the Off programmable parameter work? (already implemented but make sure)
  - The sliders only increment by the amount on the PACEMAKER doc, but should the box only take in certain values too?
 
+
+
 '''
-
-
 
 
 '''
 Parameters Name                              Range                     Increment              Type
 
-Lower Rate Limit                    [30, 60, 175, 60, 60]                  5                   Int
-Upper Rate Limit                    [50, 120, 175, 120, 120]               5                   Int
-Atrial Amplitude*                   [0.1, 5, 5, 5, 5]                     0.1                  Double
-Atrial Pulse Width*                 [1, 1, 30, 1, 1]                       1                   Int
-Ventricular Amplitude*              [0.1, 5, 5, 5, 5]                     0.1                  Double
-Ventricular Pulse Width*            [1, 30, 1, 1, 1]                       1                   Int
-VRP                                 [150, 320, 500, 320, 320]              10                  Int
-ARP                                 [150, 250, 500, 250, 250]              10                  Int
-Atrial Sensitivity**                [0, 0, 5, 0, 0]                       0.1                  Double
-Ventricular Sensitivity**           [0, 0, 5, 0, 0]                       0.1                  Double
+Lower Rate Limit                    [30, 60, 175, 60, 60]                  5                   
+Upper Rate Limit                    [50, 120, 175, 120, 120]               5                   
+Atrial Amplitude*                   [0.1, 5, 5, 5, 5]                     0.1                  
+Atrial Pulse Width*                 [1, 1, 30, 1, 1]                       1                   
+Ventricular Amplitude*              [0.1, 5, 5, 5, 5]                     0.1                  
+Ventricular Pulse Width*            [1, 30, 1, 1, 1]                       1                   
+VRP                                 [150, 320, 500, 320, 320]              10                  
+ARP                                 [150, 250, 500, 250, 250]              10                  
+Atrial Sensitivity**                [0, 0, 5, 0, 0]                       0.1                  
+Ventricular Sensitivity**           [0, 0, 5, 0, 0]                       0.1                  
 
 
 
@@ -212,6 +216,56 @@ class SerialMonitor:
             float(self.ARP),
         )
         print(f"Packet ({len(self.packet)} bytes):", " ".join(f"{b:02X}" for b in self.packet))
+
+
+    def Read_Device_Values(self):
+        """
+        Reads the current device values from the SerialMonitor's attached ParameterManager.
+        Returns a dict {param_name: value}.
+        """
+        if self.Status != "Connected":
+            print("Read_Device_Values: Device not connected, returning current ParameterManager values")
+            return {param: vals[4] for param, vals in self.param_mgr.parameter_values.items()}
+
+        # If device connected, attempt to read (reuse On_Connect logic)
+        try:
+            ser = serial.Serial(self.last_port, 115200, timeout=1)
+            self.Packet_Serial(0x22, self.param_mgr)  # request current values
+            ser.write(self.packet)
+            ser.flush()
+            time.sleep(0.5)
+            response = ser.read(64)
+            ser.close()
+            if len(response) == 64:
+                unpacked = struct.unpack("<dddddddd", response)
+                (
+                    lrl, url, atrial_amp, atrial_pw,
+                    ventricular_amp, ventricular_pw, vrp, arp
+                ) = unpacked
+
+                values = {
+                    "Lower Rate Limit": lrl,
+                    "Upper Rate Limit": url,
+                    "Atrial Amplitude": atrial_amp,
+                    "Atrial Pulse Width": atrial_pw,
+                    "Ventricular Amplitude": ventricular_amp,
+                    "Ventricular Pulse Width": ventricular_pw,
+                    "VRP": vrp,
+                    "ARP": arp
+                }
+
+                # Update your ParameterManager
+                for param, val in values.items():
+                    self.param_mgr.parameter_values[param][4] = val
+
+                return values
+            else:
+                print("Read_Device_Values: Incomplete response, returning current values")
+                return {param: vals[4] for param, vals in self.param_mgr.parameter_values.items()}
+
+        except serial.SerialException as e:
+            print("Read_Device_Values Serial Error:", e)
+            return {param: vals[4] for param, vals in self.param_mgr.parameter_values.items()}
 
 
 
@@ -438,8 +492,16 @@ class PacemakerGUI:
         # Build mode selector and sliders
         self.combo_box_create()  #makes the drop-down menu to choose mode
         self.initializes_sliders()  #makes all the sliders
-        self.select_mode(self.param_mgr.Mode[0])  #sets the starting mode (AOO) with correct states of sliders
-        self.update_temp_values()  #keeps updating the values in the slides
+
+        self.sync_sliders_with_device()    # sync sliders to device
+        self.select_mode(self.param_mgr.Mode[0])
+        self.update_temp_values()       
+
+
+
+        
+        #self.select_mode(self.param_mgr.Mode[0])  #sets the starting mode (AOO) with correct states of sliders
+        #self.update_temp_values()  #keeps updating the values in the slides
 
         save_button = Button(self.root, text="Save Parameters", command=self.save_parameters, font=self.global_font)
         save_button.place(x=495, y=300)
@@ -619,24 +681,48 @@ class PacemakerGUI:
 
 
     def update_temp_values(self):
-        for param, (scale, entry, var, toggle, toggle_var) in self.sliders.items():  #loop through sliders
-            self.param_mgr.parameter_values[param][3] = var.get()  #get the value for slider and put it in the temp place
+
+        for param, (scale, entry, var, toggle, toggle_var) in self.sliders.items():
+            self.param_mgr.parameter_values[param][3] = var.get()  # only store temp value locally
 
         self.param_mgr.Mode[0] = self.combo_box.get()
 
-        #schedule the next call same as original
         try:
             self.root.after(500, self.update_temp_values)
         except Exception:
-            #if root closed or not created yet, ignore
             pass
+        
 
     def save_parameters(self):
         for param in self.param_mgr.parameter_values:
-            self.param_mgr.parameter_values[param][4] = self.param_mgr.parameter_values[param][3]  #save temp as permanent
-
+            self.param_mgr.parameter_values[param][4] = self.param_mgr.parameter_values[param][3]  # save temp as permanent
         self.param_mgr.Mode[1] = self.combo_box.get()
-        self.serial_monitor.Write_Serial(self.param_mgr)
+        self.serial_monitor.Write_Serial(self.param_mgr)  # writes all parameters at once
+
+
+
+################## Pacemaker Stuff #############################
+
+    def sync_sliders_with_device(self):
+        """Reads permanent values from pacemaker and sets sliders to match."""
+        if self.serial_monitor.Status != "Connected":
+            return
+
+        values = self.serial_monitor.Read_Device_Values()
+
+        for param, val in values.items():
+            if param in self.param_mgr.parameter_values:
+                self.param_mgr.parameter_values[param][4] = val  # permanent
+                self.param_mgr.parameter_values[param][3] = val  # temporary
+                if param in self.sliders:
+                    scale, entry, var, toggle, toggle_var = self.sliders[param]
+                    var.set(val)
+
+
+
+
+
+
 
     #creates a new report of the type given (Bradycardia or Temporary)
     def export_report(self, type: str):
