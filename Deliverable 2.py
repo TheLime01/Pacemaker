@@ -1,3 +1,4 @@
+
 from tkinter import *
 import tkinter as tk
 from tkinter import ttk
@@ -12,8 +13,7 @@ import struct
 from collections import deque
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-
-
+import os 
 
 from tkinter import font
 
@@ -21,17 +21,22 @@ from tkinter import font
 Questions/Issues
 
 - make it look better
-- Assurance case - weeks , 10-11 slides, etc
+- Assurance case - weeks , 10-11 slides, etc (can be seperate (i.e DCM and Pacemaker) or can be together
 
-Got the saving to work for the parameters between uses, but
-    1) when the actual pacemaker is plugged out and then plugged back in again it goes to its intial values
-    2) it doesnt save the mode but it'll save the changes made to the other numbers
 
-    3) how will it work for different users?
-    4) how will it work for the Off parameter?
+Stuff we still need to do:
+    1) send the new modes and parameters (need to wait for pacemaker team)
+    2) egram graphs?
+    3) pacemaker needs to account for the Off parameter
+    4) maybe need to save the mode on the pacemaker too
 
- - How the Off programmable parameter work? (already implemented but make sure)
- - The sliders only increment by the amount on the PACEMAKER doc, but should the box only take in certain values too?
+
+DCM writes to pacemaker
+
+for example if the dcm is open someone made changes, and the the pacemaker is plugged in, when the user clicks save it will write the
+pacemaker.
+
+
 
 
 
@@ -276,7 +281,10 @@ class SerialMonitor:
 
 class ParameterManager:
 
-    def __init__(self):
+    def __init__(self, filename="parameters.json"):
+
+        self.filename = os.path.join(os.path.dirname(__file__), "parameters.json")
+
         self.Device_model = "Pacemaker"
         self.Device_serial_number = "HOOO25"
         self.DCM_serial_number = "400325598"
@@ -297,21 +305,62 @@ class ParameterManager:
             "VVIR": ["Lower Rate Limit", "Upper Rate Limit", "Ventricular Amplitude", "Ventricular Pulse Width", "VRP", "Ventricular Sensitivity"]
         }
 
+        
         # Mode and parameter values
         self.Mode = ["AOO", "AOO"]  #0=temporary paramater, 1=permanent parameter
-        self.parameter_values = { #min, nominal, max, temp, permanent
-            "Lower Rate Limit": [30, 60, 175, 60, 60],
-            "Upper Rate Limit": [50, 120, 175, 120, 120],
-            "Atrial Amplitude": [0.1, 5, 5, 5, 5],
-            "Atrial Pulse Width": [1, 1, 30, 1, 1],
-            "Ventricular Amplitude": [0.1, 5, 5, 5, 5],
-            "Ventricular Pulse Width": [1, 30, 1, 1, 1],
-            "VRP": [150, 320, 500, 320, 320],
-            "ARP": [150, 250, 500, 250, 250],
-            "Atrial Sensitivity": [0, 0, 5, 0, 0],
-            "Ventricular Sensitivity": [0, 0, 5, 0, 0]
+        self.parameter_values = { #min, nominal, max, temp, permanent, toggle
+            "Lower Rate Limit": [30, 60, 175, 60, 60, False],
+            "Upper Rate Limit": [50, 120, 175, 120, 120, False],
+            "Atrial Amplitude": [0.1, 5, 5, 5, 5, True],
+            "Atrial Pulse Width": [1, 1, 30, 1, 1, False],
+            "Ventricular Amplitude": [0.1, 5, 5, 5, 5, True],
+            "Ventricular Pulse Width": [1, 1, 30, 1, 1, False],
+            "VRP": [150, 320, 500, 320, 320, False],
+            "ARP": [150, 250, 500, 250, 250, False],
+            "Atrial Sensitivity": [0, 0, 5, 0, 0, False],
+            "Ventricular Sensitivity": [0, 0, 5, 0, 0, False]
         }
 
+
+        self.load_parameters()
+
+
+        #Save programmable parameter between uses
+
+    def save_parameters_perm(self):
+
+        print("Saving parameters to file...")
+
+        data = {
+            "last_mode": self.Mode[1],
+            "parameter_values": self.parameter_values
+        }
+
+        with open(self.filename, "w") as file:
+            json.dump(data, file, indent=4)
+
+        print("Parameters saved to", self.filename)
+
+
+    def load_parameters(self):
+        if os.path.exists(self.filename):
+            with open(self.filename, "r") as f:
+                data = json.load(f)
+            if "last_mode" in data:
+                self.Mode[0] = self.Mode[1] = data["last_mode"]
+            if "parameter_values" in data:
+                self.parameter_values = data["parameter_values"]
+                # Ensure toggle value exists for every parameter
+                for param, vals in self.parameter_values.items():
+                    if len(vals) < 6:
+                        # Set toggle: True for amplitudes, False otherwise
+                        if "Amplitude" in param:
+                            vals.append(True)
+                        else:
+                            vals.append(False)
+            print("Parameters loaded from", self.filename)
+        else:
+            print("No parameters file found, using defaults.")
 
 ############################## User management ##############################
 
@@ -543,12 +592,16 @@ class PacemakerGUI:
             #read latest status from serial_monitor
             self.Status = self.serial_monitor.Status
             self.Status_button.config(text=self.Status)
+
+            '''
       
             # Enable or disable save button based on connection
             if self.Status == "Connected":
                 self.save_button.config(state="normal")
             else:
                 self.save_button.config(state="disabled")
+
+            '''
 
         #schedule again
         try:
@@ -603,14 +656,16 @@ class PacemakerGUI:
         self.combo_box_create()  #makes the drop-down menu to choose mode
         self.initializes_sliders()  #makes all the sliders
 
-        self.sync_sliders_with_device()    # sync sliders to device
-        self.select_mode(self.param_mgr.Mode[0])
-        self.update_temp_values()       
+        self.param_mgr.load_parameters()
+        self.combo_box.set(self.param_mgr.Mode[1])
+        self.select_mode(self.param_mgr.Mode[1]) #sets the starting mode (AOO)
+
+        self.sync_sliders_with_device() # get info from device and set the sliders to it
 
         
-        #self.select_mode(self.param_mgr.Mode[0])  #sets the starting mode (AOO) with correct states of sliders
-        #self.update_temp_values()  #keeps updating the values in the slides
+        self.update_temp_values() #keeps updating the values in the slides
 
+        
         self.save_button = Button(self.root, text="Save Parameters", command=self.save_parameters, font=self.global_font)
         self.save_button.place(x=495, y=300)
 
@@ -836,30 +891,42 @@ class PacemakerGUI:
         
 
     def save_parameters(self):
+        # Copy temp values to permanent
         for param in self.param_mgr.parameter_values:
-            self.param_mgr.parameter_values[param][4] = self.param_mgr.parameter_values[param][3]  # save temp as permanent
+            self.param_mgr.parameter_values[param][4] = self.param_mgr.parameter_values[param][3]
+            if param in self.sliders:
+                scale, entry, var, toggle, toggle_var = self.sliders[param]
+                if toggle:
+                    self.param_mgr.parameter_values[param][5] = toggle_var.get()
+
+        # Save mode
         self.param_mgr.Mode[1] = self.combo_box.get()
-        self.serial_monitor.Write_Serial(self.param_mgr)  # writes all parameters at once
 
+        # Write to JSON
+        self.param_mgr.save_parameters_perm()
 
-
+        # Write to Pacemaker if connected
+        if self.serial_monitor.Status == "Connected":
+            self.serial_monitor.Write_Serial(self.param_mgr)
 ################## Pacemaker Stuff #############################
 
     def sync_sliders_with_device(self):
-        """Reads permanent values from pacemaker and sets sliders to match."""
-        if self.serial_monitor.Status != "Connected":
-            return
+        """
+        Sync sliders from parameters.json only.
+        Writing to the device is handled separately by save_parameters().
+        """
+        # Load permanent values from the ParameterManager
+        for param, vals in self.param_mgr.parameter_values.items():
+            temp_val = vals[4]  # permanent value
+            if param in self.sliders:
+                scale, entry, var, toggle, toggle_var = self.sliders[param]
+                var.set(temp_val)
+                # Restore toggle state if applicable
+                if toggle_var is not None:
+                    toggle_var.set(vals[5])
 
-        values = self.serial_monitor.Read_Device_Values()
 
-        for param, val in values.items():
-            if param in self.param_mgr.parameter_values:
-                self.param_mgr.parameter_values[param][4] = val  # permanent
-                self.param_mgr.parameter_values[param][3] = val  # temporary
-                if param in self.sliders:
-                    scale, entry, var, toggle, toggle_var = self.sliders[param]
-                    var.set(val)
-
+    
 
 
 
