@@ -85,6 +85,7 @@ class SerialMonitor:
         self.param_mgr = param_mgr  # <-- store reference
 
         # Start monitor thread (daemon so it won't block program exit)
+        self.stop_event = threading.Event()
         self.thread = threading.Thread(target=self.Monitor_ports, daemon=True)
         self.thread.start()
 
@@ -140,7 +141,7 @@ class SerialMonitor:
             print(f"Serial Port Error: {e}")
     
     def Monitor_ports(self):
-        while True: #Continuously checks
+        while not self.stop_event.is_set(): #Continuously checks
             ports = list(list_ports.comports()) #Collects and stores ports in a list
             pacemaker_port = None #Current pacemaker port set to none first
 
@@ -286,6 +287,10 @@ class SerialMonitor:
         except serial.SerialException as e:
             print("Read_Device_Values Serial Error:", e)
             return {param: vals[4] for param, vals in self.param_mgr.parameter_values.items()}
+        
+    def stop(self):
+        self.stop_event.set()
+
 
 
 
@@ -623,7 +628,7 @@ class PacemakerGUI:
             pass
         
     def Read_Pacemaker(self):
-        self.Read_window = Toplevel()  #Initiates about window
+        self.Read_window = Toplevel()  #Initiates window
         self.Read_window.geometry("300x380")
         self.Read_window.title("Pacemaker_Data")  #Sets title
 
@@ -716,7 +721,7 @@ class PacemakerGUI:
         self.combo_box.set(self.param_mgr.Mode[1])
         self.select_mode(self.param_mgr.Mode[1]) #sets the starting mode (AOO)
 
-        self.sync_sliders_with_device() # get info from device and set the sliders to it
+        self.sync_sliders() # get info from local file and set the sliders to it
 
         
         self.update_temp_values() #keeps updating the values in the slides
@@ -972,7 +977,7 @@ class PacemakerGUI:
             self.serial_monitor.Write_Serial(self.param_mgr)
 ################## Pacemaker Stuff #############################
 
-    def sync_sliders_with_device(self):
+    def sync_sliders(self):
         """
         Sync sliders from parameters.json only.
         Writing to the device is handled separately by save_parameters().
@@ -1092,9 +1097,11 @@ class PacemakerGUI:
         Sign_up_label.after(3000, Sign_up_label.destroy)  # Removes sign up text after some time
 
     def Quit(self):
+        self.serial_monitor.stop()
         self.Window.destroy()  #Quits window
 
     def Quit2(self):
+        self.serial_monitor.stop()
         if self.root:
             self.root.destroy()  #Quits secondary window
 
