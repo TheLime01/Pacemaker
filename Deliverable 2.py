@@ -588,7 +588,7 @@ class PacemakerGUI:
         Institution_Name = Label(About_window, text="Institution Name: McMaster University", font=('Arial', 14), fg='black', bg="white")  #Sets text settings
         Institution_Name.place(x=10, y=100)  #Displays institution name text
 
-        About_window.mainloop()  #Displays the about window
+        #About_window.mainloop()  #Displays the about window
 
     def Get_input(self):  #Get username and password and returns it
         Username_input = self.Username_box.get()
@@ -623,7 +623,6 @@ class PacemakerGUI:
             pass
         
     def Read_Pacemaker(self):
-        Serial_Monitor = SerialMonitor()
         self.Read_window = Toplevel()  #Initiates about window
         self.Read_window.geometry("300x380")
         self.Read_window.title("Pacemaker_Data")  #Sets title
@@ -637,31 +636,34 @@ class PacemakerGUI:
                     "ARP": arp
         '''
 
-        self.lrl_Label = Label(self.Read_window, text="Lower Rate Limit: " + Serial_Monitor.lrl, font=('Arial', 14), fg='black', bg="white")  #Sets text settings
+        # NEED TO ADD SOMETHING HERE THAT READS THE VALUES, MAYBE Read_Device_Values()?? 
+        # BUT I THINK THAT MIGHT GET VALUES FROM PARAM MANAGER IF FAILS TO READ? NOT SURE
+
+        self.lrl_Label = Label(self.Read_window, text="Lower Rate Limit: " + self.serial_monitor.lrl, font=('Arial', 14), fg='black', bg="white")  #Sets text settings
         self.lrl_Label.place(x=10, y=10)  #Displays model number text
 
-        self.url_Label = Label(self.Read_window, text="Upper Rate Limit: " + Serial_Monitor.url, font=('Arial', 14), fg='black', bg="white")  #Sets text settings
+        self.url_Label = Label(self.Read_window, text="Upper Rate Limit: " + self.serial_monitor.url, font=('Arial', 14), fg='black', bg="white")  #Sets text settings
         self.url_Label.place(x=10, y=40)  #Displays model number text
 
-        self.atrial_amp_Label = Label(self.Read_window, text="Atrial Amplitude: " + Serial_Monitor.atrial_amp, font=('Arial', 14), fg='black', bg="white")  #Sets text settings
+        self.atrial_amp_Label = Label(self.Read_window, text="Atrial Amplitude: " + self.serial_monitor.atrial_amp, font=('Arial', 14), fg='black', bg="white")  #Sets text settings
         self.atrial_amp_Label.place(x=10, y=70)  #Displays model number text
 
-        self.atrial_pw_Label = Label(self.Read_window, text="Atrial Pulse Width: " + Serial_Monitor.atrial_pw, font=('Arial', 14), fg='black', bg="white")  #Sets text settings
+        self.atrial_pw_Label = Label(self.Read_window, text="Atrial Pulse Width: " + self.serial_monitor.atrial_pw, font=('Arial', 14), fg='black', bg="white")  #Sets text settings
         self.atrial_pw_Label.place(x=10, y=100)  #Displays model number text
 
-        self.ventricular_amp_Label = Label(self.Read_window, text="Ventricular Amplitude: " + Serial_Monitor.ventricular_amp, font=('Arial', 14), fg='black', bg="white")  #Sets text settings
+        self.ventricular_amp_Label = Label(self.Read_window, text="Ventricular Amplitude: " + self.serial_monitor.ventricular_amp, font=('Arial', 14), fg='black', bg="white")  #Sets text settings
         self.ventricular_amp_Label.place(x=10, y=70)  #Displays model number text
 
-        self.ventricular_pw_Label = Label(self.Read_window, text="Ventricular Pulse Width: " + Serial_Monitor.ventricular_pw, font=('Arial', 14), fg='black', bg="white")  #Sets text settings
+        self.ventricular_pw_Label = Label(self.Read_window, text="Ventricular Pulse Width: " + self.serial_monitor.ventricular_pw, font=('Arial', 14), fg='black', bg="white")  #Sets text settings
         self.ventricular_pw_Label.place(x=10, y=100)  #Displays model number text
 
-        self.vrp_Label = Label(self.Read_window, text="VRP: " + Serial_Monitor.vrp, font=('Arial', 14), fg='black', bg="white")  #Sets text settings
+        self.vrp_Label = Label(self.Read_window, text="VRP: " + self.serial_monitor.vrp, font=('Arial', 14), fg='black', bg="white")  #Sets text settings
         self.vrp_Label.place(x=10, y=130)  #Displays model number text
 
-        self.arp_Label = Label(self.Read_window, text="ARP: " + Serial_Monitor.arp, font=('Arial', 14), fg='black', bg="white")  #Sets text settings
+        self.arp_Label = Label(self.Read_window, text="ARP: " + self.serial_monitor.arp, font=('Arial', 14), fg='black', bg="white")  #Sets text settings
         self.arp_Label.place(x=10, y=160)  #Displays model number text
         
-        self.Read_window.mainloop()  #Displays the about window
+        #self.Read_window.mainloop()  #Displays the about window
 
     def Successful_login(self):  #Gives access to my account page
 
@@ -746,6 +748,7 @@ class PacemakerGUI:
         self.combo_box.config(state="disabled")
         self.save_button.config(state="disabled")
         self.graph_button.config(state="disabled")
+        self.Read_button.config(state="disabled")
         for param, (scale, entry, _, toggle, _) in self.sliders.items():
             scale.config(state="disabled")
             entry.config(state="disabled")
@@ -765,6 +768,7 @@ class PacemakerGUI:
             self.combo_box.config(state="readonly")
             self.save_button.config(state="normal")
             self.graph_button.config(state="normal")
+            self.Read_button.config(state="normal")
             self.select_mode(self.combo_box.get())
             graph_window.destroy()
 
