@@ -323,7 +323,7 @@ class ParameterManager:
         self.parameter_values = { #min, nominal, max, temp, permanent, toggle
             "Lower Rate Limit": [30, 60, 175, 60, 60, False],
             "Upper Rate Limit": [50, 120, 175, 120, 120, False],
-            "Atrial Amplitude": [0.1, 5, 5, 5, 5, True],
+            "Atrial Amplitude": [0.1, 5, 5, 5, 5, False], ##############################
             "Atrial Pulse Width": [1, 1, 30, 1, 1, False],
             "Ventricular Amplitude": [0.1, 5, 5, 5, 5, True],
             "Ventricular Pulse Width": [1, 1, 30, 1, 1, False],
@@ -681,13 +681,13 @@ class PacemakerGUI:
         self.global_font = font.Font(family=self.font_family, size=self.font_size)
 
         increase_btn = Button(self.root, text="A+", command=self.increase_font, font=self.global_font)
-        increase_btn.place(x=900, y=20)
+        increase_btn.place(x=870, y=20)
 
         decrease_btn = Button(self.root, text="A-", command=self.decrease_font, font=self.global_font)
-        decrease_btn.place(x=950, y=20)
+        decrease_btn.place(x=930, y=20)
 
         contrast_btn = Button(self.root, text="Toggle Contrast", command=self.toggle_contrast_logged_in, font=self.global_font)
-        contrast_btn.place(x=900, y=50)
+        contrast_btn.place(x=650, y=20)
 
 
         ######################## Fonts ###########################
@@ -697,17 +697,14 @@ class PacemakerGUI:
         About_button.config(command=self.About)  #Sets button to about function
 
         Quit_button = Button(self.root, text="Quit", font=self.global_font, fg='black', bg="white")  #Sets text settings
-        Quit_button.place(x=1010, y=15)  #Displays quit button
+        Quit_button.place(x=1000, y=20)  #Displays quit button
         Quit_button.config(command=self.Quit2)  #Sets button to quit function
 
         # Status button
         self.Status_button = Button(self.root, text=self.Status, font=self.global_font, fg='black', bg="white")
         self.Status_button.place(x=15, y=725)
 
-        #Read Button
-        self.Read_button = Button(self.root, text="Read Pacemaker", font=self.global_font, fg='black', bg="white")
-        self.Read_button.place(x=490, y=350)
-        self.Read_button.config(command=self.Read_Pacemaker)  #Sets button to quit function
+
 
         # Build mode selector and sliders
         self.combo_box_create()  #makes the drop-down menu to choose mode
@@ -722,18 +719,24 @@ class PacemakerGUI:
         
         self.update_temp_values() #keeps updating the values in the slides
 
-        
+
+
         self.save_button = Button(self.root, text="Save Parameters", command=self.save_parameters, font=self.global_font)
-        self.save_button.place(x=495, y=300)
+        self.save_button.place(x=450, y=300)
+
+        #Read Button
+        self.Read_button = Button(self.root, text="Read Pacemaker", font=self.global_font)
+        self.Read_button.place(x=450, y=350)
+        self.Read_button.config(command=self.Read_Pacemaker)  #Sets button to quit function
 
         temp_report_button = Button(self.root, text="Temporary Report", command=lambda: self.export_report("Temporary"), font=self.global_font)
-        temp_report_button.place(x=490, y=400)
+        temp_report_button.place(x=450, y=400)
 
         Bradycardia_report_button = Button(self.root, text="Bradycardia Report", command=lambda: self.export_report("Bradycardia"), font=self.global_font)
-        Bradycardia_report_button.place(x=490, y=450)
+        Bradycardia_report_button.place(x=450, y=450)
 
         self.graph_button = Button(self.root, text="View Egram Graphs", command=self.open_graph_window, font=self.global_font)
-        self.graph_button.place(x=490, y=500)
+        self.graph_button.place(x=450, y=500)
 
         self.update_status_button()
 
@@ -771,10 +774,10 @@ class PacemakerGUI:
     def combo_box_create(self):  #function to make dropdown menu
         self.root.title("Modes")
         self.label = tk.Label(self.root, text="Selected Mode: ", font=self.global_font, fg='black')
-        self.label.place(x=450, y=90)
+        self.label.place(x=400, y=90)
 
         self.combo_box = ttk.Combobox(self.root, values=self.param_mgr.Modes, state='readonly', font=self.global_font)
-        self.combo_box.place(x=450, y=130)
+        self.combo_box.place(x=400, y=130)
 
         self.combo_box.set("AOO")  #default state
         self.combo_box.bind("<<ComboboxSelected>>", self.select_mode)
@@ -820,7 +823,7 @@ class PacemakerGUI:
         var = tk.DoubleVar(value=initial)  #creates a double int and initializes it to nominal value
 
 
-        tk.Label(parent, text=label_text, font=self.global_font).place(x=x, y=y)  #puts parameter name above the slider
+        tk.Label(parent, text=label_text, font=self.global_font).place(x=x, y=y-10)  #puts parameter name above the slider
 
         if label_text == "Lower Rate Limit" or label_text == "Upper Rate Limit":
             scale = tk.Scale(parent, from_=from_, to=to, orient='horizontal', resolution=5, variable=var, showvalue=False, length=150)
@@ -853,10 +856,10 @@ class PacemakerGUI:
 
         #shows min and max values of the sliders
         min_label = tk.Label(parent, text=str(from_), font=self.global_font)
-        min_label.place(x=x, y=y + 40)  # min
+        min_label.place(x=x, y=y+40)  # min
         
         max_label = tk.Label(parent, text=str(to), font=self.global_font)
-        max_label.place(x=x + 130, y=y + 40)  # max
+        max_label.place(x=x + 130, y=y+40)  # max
 
         min_label.is_slider_related = True
         max_label.is_slider_related = True
@@ -917,19 +920,17 @@ class PacemakerGUI:
         self.sliders = {}
 
         # (parent, label, min value, max value, x pos, y pos, nominal value)
-        self.sliders["Lower Rate Limit"] = self.create_slider_with_entry(self.root, "Lower Rate Limit", 30, 180, 150, 220, 60)
-        self.sliders["Upper Rate Limit"] = self.create_slider_with_entry(self.root, "Upper Rate Limit", 50, 200, 150, 300, 120)
-        self.sliders["Atrial Amplitude"] = self.create_slider_with_entry(self.root, "Atrial Amplitude", 0.1, 5.0, 150, 380, 5, has_toggle=True)
+        self.sliders["Lower Rate Limit"] = self.create_slider_with_entry(self.root, "Lower Rate Limit", 30, 180, 150, 150, 60)
+        self.sliders["Upper Rate Limit"] = self.create_slider_with_entry(self.root, "Upper Rate Limit", 50, 200, 150, 250, 120)
+        self.sliders["Atrial Amplitude"] = self.create_slider_with_entry(self.root, "Atrial Amplitude", 0.1, 5.0, 150, 350, 5, has_toggle=True)
+        self.sliders["Atrial Pulse Width"] = self.create_slider_with_entry(self.root, "Atrial Pulse Width", 1, 30, 150, 450, 1)
+        self.sliders["Atrial Sensitivity"] = self.create_slider_with_entry(self.root, "Atrial Sensitivity", 0, 5, 150, 550, 0) #new
 
-        self.sliders["Atrial Pulse Width"] = self.create_slider_with_entry(self.root, "Atrial Pulse Width", 1, 30, 150, 460, 1)
-        self.sliders["Ventricular Amplitude"] = self.create_slider_with_entry(self.root, "Ventricular Amplitude", 0.1, 5.0, 710, 220, 5, has_toggle=True)
-
-        self.sliders["Ventricular Pulse Width"] = self.create_slider_with_entry(self.root, "Ventricular Pulse Width", 1, 30, 710, 300, 1)
-        self.sliders["VRP"] = self.create_slider_with_entry(self.root, "VRP", 150, 500, 710, 380, 320)
-        self.sliders["ARP"] = self.create_slider_with_entry(self.root, "ARP", 150, 500, 710, 460, 250)
-
-        self.sliders["Atrial Sensitivity"] = self.create_slider_with_entry(self.root, "Atrial Sensitivity", 0, 5, 150, 540, 0)
-        self.sliders["Ventricular Sensitivity"] = self.create_slider_with_entry(self.root, "Ventricular Sensitivity", 0, 5, 710, 540, 0)
+        self.sliders["Ventricular Amplitude"] = self.create_slider_with_entry(self.root, "Ventricular Amplitude", 0.1, 5.0, 710, 150, 5, has_toggle=True)
+        self.sliders["Ventricular Pulse Width"] = self.create_slider_with_entry(self.root, "Ventricular Pulse Width", 1, 30, 710, 250, 1)
+        self.sliders["VRP"] = self.create_slider_with_entry(self.root, "VRP", 150, 500, 710, 350, 320)
+        self.sliders["ARP"] = self.create_slider_with_entry(self.root, "ARP", 150, 500, 710, 450, 250)
+        self.sliders["Ventricular Sensitivity"] = self.create_slider_with_entry(self.root, "Ventricular Sensitivity", 0, 5, 710, 550, 0) #new
 
 
 
@@ -1105,15 +1106,13 @@ class PacemakerGUI:
         self.global_font = font.Font(family=self.font_family, size=self.font_size)
 
         increase_btn = Button(self.Window, text="A+", command=self.increase_font, font=self.global_font)
-        increase_btn.place(x=900, y=20)
+        increase_btn.place(x=870, y=20)
 
         decrease_btn = Button(self.Window, text="A-", command=self.decrease_font, font=self.global_font)
-        decrease_btn.place(x=950, y=20)
+        decrease_btn.place(x=930, y=20)
 
-        toggle_btn = Button(self.Window, text="Toggle Contrast", command=self.toggle_contrast)
-        toggle_btn.place(x=800, y=20)
-
-
+        toggle_btn = Button(self.Window, text="Toggle Contrast", command=self.toggle_contrast, font=self.global_font)
+        toggle_btn.place(x=650, y=20)
 
 
         
@@ -1143,7 +1142,7 @@ class PacemakerGUI:
         Sign_up_button.config(command=self.Sign_up)
 
         Quit_button = Button(self.Window, text="Quit", font=self.global_font, fg='black', bg="white")
-        Quit_button.place(x=1010, y=15)
+        Quit_button.place(x=1000, y=20)
 
         Quit_button.config(command=self.Quit)
 
@@ -1159,7 +1158,7 @@ class PacemakerGUI:
 
     def increase_font(self):
 
-        if self.font_size < 30:
+        if self.font_size < 18:
             self.font_size += 2  # increase size by 2
             self.global_font.config(size=self.font_size)
 
