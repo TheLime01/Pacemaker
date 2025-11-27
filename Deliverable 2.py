@@ -1,50 +1,30 @@
 
-from tkinter import *
-import tkinter as tk
-from tkinter import ttk
-import json
-from datetime import datetime
-import subprocess
-import serial
-from serial.tools import list_ports
-import time
-import threading
-import struct
-from collections import deque
-from matplotlib.figure import Figure
+from tkinter import * #imports Tkiinter GUI classes/functions
+import tkinter as tk 
+from tkinter import ttk #imports some widgets(combobox)
+import json #used for reading and writing files
+from datetime import datetime #for timestamps in reports
+import subprocess #allows launching Simulink
+import serial #for serial communication
+from serial.tools import list_ports #used to detect available COM ports
+import time #for time delays 
+import threading #for running background tasks
+import struct #for packing and unpacking data (to send/receive info from pacemaker)
+from collections import deque #buffer for incoming egram data
+from matplotlib.figure import Figure #for creating the graphs
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-import os 
-
-from tkinter import font
-
-'''
-Questions/Issues
-
-- make it look better
-- Assurance case - weeks , 10-11 slides, etc (can be seperate (i.e DCM and Pacemaker) or can be together
-
-
-Stuff we still need to do:
-    1) send the new modes and parameters (need to wait for pacemaker team)
-    2) egram graphs?
-    3) pacemaker needs to account for the Off parameter
-    4) maybe need to save the mode on the pacemaker too
-
-
-DCM writes to pacemaker
-
-for example if the dcm is open someone made changes, and the the pacemaker is plugged in, when the user clicks save it will write the
-pacemaker.
-
-
+import os #used for file path creation 
+from tkinter import font #used to change font sizes
 
 
 
 '''
+Off doesnt work properly doesnt save between uses
+'''
 
 
 '''
-Parameters Name                              Range                     Increment              Type
+Parameters Name                              Range                     Increment
 
 Lower Rate Limit                    [30, 60, 175, 60, 60]                  5                   
 Upper Rate Limit                    [50, 120, 175, 120, 120]               5                   
@@ -68,7 +48,6 @@ VVI MODE 3
 AAI MODE 4
 
 '''
-
 
 ############################## Serial ##############################
 
@@ -361,9 +340,10 @@ class SerialMonitor:
 
 class ParameterManager:
 
+
     def __init__(self, filename="parameters.json"):
 
-        self.filename = os.path.join(os.path.dirname(__file__), "parameters.json")
+        self.filename = os.path.join(os.path.dirname(__file__), "parameters.json") #file where parameter data is stored
 
         self.Device_model = "Pacemaker"
         self.Device_serial_number = "HOOO25"
@@ -371,7 +351,7 @@ class ParameterManager:
         self.Model_number = "4230"
         self.Version_number = "1.0"
 
-        # Modes and parameters
+        # modes and each of their parameters
         self.Modes = ["AOO", "VOO", "AAI", "VVI", "AOOR", "VOOR", "AAIR", "VVIR"]
         self.Parameters_Units = [" ppm", " ppm", " V", " ms", " V", " ms", " ms", " ms", "mV", "mV"]
         self.mode_parameters = {
@@ -385,15 +365,14 @@ class ParameterManager:
             "VVIR": ["Lower Rate Limit", "Upper Rate Limit", "Ventricular Amplitude", "Ventricular Pulse Width", "VRP", "Ventricular Sensitivity"]
         }
 
-        
-        # Mode and parameter values
+        # parameter values
         self.Mode = ["AOO", "AOO"]  #0=temporary paramater, 1=permanent parameter
-        self.parameter_values = { #min, nominal, max, temp, permanent, toggle
+        self.parameter_values = { #min, nominal, max, temp, permanent, toggle (false means on, true means off)
             "Lower Rate Limit": [30, 60, 175, 60, 60, False],
             "Upper Rate Limit": [50, 120, 175, 120, 120, False],
             "Atrial Amplitude": [0.1, 5, 5, 5, 5, False], ##############################
             "Atrial Pulse Width": [1, 1, 30, 1, 1, False],
-            "Ventricular Amplitude": [0.1, 5, 5, 5, 5, True],
+            "Ventricular Amplitude": [0.1, 5, 5, 5, 5, False],
             "Ventricular Pulse Width": [1, 1, 30, 1, 1, False],
             "VRP": [150, 320, 500, 320, 320, False],
             "ARP": [150, 250, 500, 250, 250, False],
@@ -401,45 +380,47 @@ class ParameterManager:
             "Ventricular Sensitivity": [0, 0, 5, 0, 0, False]
         }
 
+        self.load_parameters() #loads saved values
 
-        self.load_parameters()
 
+    def save_parameters_perm(self): #saves permanent programmable parameters and last saved mode between uses 
 
-        #Save programmable parameter between uses
+        print("Saving parameters to file...") #test to indicate saving
 
-    def save_parameters_perm(self):
-
-        print("Saving parameters to file...")
-
-        data = {
-            "last_mode": self.Mode[1],
-            "parameter_values": self.parameter_values
+        data = { #data to save
+            "last_mode": self.Mode[1], #permanent mode
+            "parameter_values": self.parameter_values #parameter values
         }
 
-        with open(self.filename, "w") as file:
+        with open(self.filename, "w") as file: #writes parameters to JSON file
             json.dump(data, file, indent=4)
 
-        print("Parameters saved to", self.filename)
+        print("Parameters saved to", self.filename) #test to confirm it saved
 
 
-    def load_parameters(self):
-        if os.path.exists(self.filename):
-            with open(self.filename, "r") as f:
+    def load_parameters(self): #loads previously saved parameters from JSON file
+        
+        if os.path.exists(self.filename): #if the file exists
+            with open(self.filename, "r") as f: #load saved file
                 data = json.load(f)
-            if "last_mode" in data:
+                
+            if "last_mode" in data: #restore last mode
                 self.Mode[0] = self.Mode[1] = data["last_mode"]
-            if "parameter_values" in data:
+
+                
+            if "parameter_values" in data: #restore last saved parameter values
                 self.parameter_values = data["parameter_values"]
-                # Ensure toggle value exists for every parameter
-                for param, vals in self.parameter_values.items():
-                    if len(vals) < 6:
-                        # Set toggle: True for amplitudes, False otherwise
-                        if "Amplitude" in param:
-                            vals.append(True)
+
+                for param, vals in self.parameter_values.items(): #goes through all the parameter values
+                    if len(vals) < 6: #if the list has less than 6 elements
+                        if "Amplitude" in param: #if it has Amplitude in the name
+                            vals.append(True) #the toggle flag is set to true
                         else:
-                            vals.append(False)
-            print("Parameters loaded from", self.filename)
-        else:
+                            vals.append(False) #else false
+                            
+            print("Parameters loaded from", self.filename) #test to see if parameters are loaded in
+
+        else: #if there is no previous saved file
             print("No parameters file found, using defaults.")
 
 ############################## User management ##############################
@@ -611,68 +592,61 @@ class EgramViewer(tk.Toplevel):
 class PacemakerGUI:
 
     def __init__(self):
-        # Initialize managers
-        self.param_mgr = ParameterManager()
-        self.serial_monitor = SerialMonitor(self.param_mgr)
-        self.user_mgr = UserManager()
-        
+        self.param_mgr = ParameterManager() #initializes parameters
+        self.serial_monitor = SerialMonitor(self.param_mgr) #sets up serial communication
+        self.user_mgr = UserManager() #sets up user registration
 
-        # Setup main login Window
-        self.Window = Tk()  #Initiates a window
-        self.Window.geometry("1080x1080") #Sets size of the window
-        self.Window.title("Pacemaker") #Sets the title
+        #sets up main window
+        self.Window = Tk() #initiates a window
+        self.Window.geometry("1080x1080") #sets size of the window
+        self.Window.title("Pacemaker") #sets the title
 
-
-        self.high_contrast = False
-
+        self.high_contrast = False #tracks current constrast mode
 
         try:
-            Icon = PhotoImage(file="Pacemaker Logo.png")  #Sets the icon
-            self.Window.iconphoto(True, Icon)  #Displays the icon
+            Icon = PhotoImage(file="Pacemaker Logo.png") #sets the icon
+            self.Window.iconphoto(True, Icon) #displays the icon
         except Exception:
-            # preserve original behavior (it assumed file exists); if not, continue silently
-            pass
+            pass #if icon not found, ignore
 
-        self.Window.config(background="#CBC3E3")  # Sets colour of background
+        self.Window.config(background="#CBC3E3") #sets colour of background
 
         self.root = None  #will be created on successful login
-        self.Status_button = None
+        self.Status_button = None #shows connection status
         self.label = None
-        self.combo_box = None
-        self.sliders = {}
+        self.combo_box = None #makes combobox
+        self.sliders = {} #for storing slider widgets
         self.Status = self.serial_monitor.Status  #mirror serial status (kept in sync via update)
 
-        #Create initial widgets
-        self._create_login_widgets()
+        self._create_login_widgets() #creates initial widgets
 
 
     ############################## Functions ##############################
 
     def About(self):
-        About_window = Toplevel()  #Initiates about window
+        About_window = Toplevel() #initiates about window
         About_window.geometry("360x180")
-        About_window.title("About")  #Sets title
+        About_window.title("About") #sets title
 
-        Model_Number = Label(About_window, text="Model Number: " + self.param_mgr.Model_number, font=('Arial', 14), fg='black', bg="white")  #Sets text settings
-        Model_Number.place(x=10, y=10)  #Displays model number text
+        Model_Number = Label(About_window, text="Model Number: " + self.param_mgr.Model_number, font=('Arial', 14), fg='black', bg="white") #sets text settings
+        Model_Number.place(x=10, y=10) #displays model number text
 
-        Software_Revision_Number = Label(About_window, text="Software Revision Number: Version " + self.param_mgr.Version_number, font=('Arial', 14), fg='black', bg="white")  #Sets text settings
-        Software_Revision_Number.place(x=10, y=40)  #Displays software revision number text
+        Software_Revision_Number = Label(About_window, text="Software Revision Number: Version " + self.param_mgr.Version_number, font=('Arial', 14), fg='black', bg="white") #sets text settings
+        Software_Revision_Number.place(x=10, y=40) #displays software revision number text
 
-        DCM_Serial_Number = Label(About_window, text="DCM Serial Number: " + self.param_mgr.DCM_serial_number, font=('Arial', 14), fg='black', bg="white")  #Sets text settings
-        DCM_Serial_Number.place(x=10, y=70)  #Displays DCM serial number text
+        DCM_Serial_Number = Label(About_window, text="DCM Serial Number: " + self.param_mgr.DCM_serial_number, font=('Arial', 14), fg='black', bg="white") #sets text settings
+        DCM_Serial_Number.place(x=10, y=70) #displays DCM serial number text
 
-        Institution_Name = Label(About_window, text="Institution Name: McMaster University", font=('Arial', 14), fg='black', bg="white")  #Sets text settings
-        Institution_Name.place(x=10, y=100)  #Displays institution name text
+        Institution_Name = Label(About_window, text="Institution Name: McMaster University", font=('Arial', 14), fg='black', bg="white") #sets text settings
+        Institution_Name.place(x=10, y=100) #displays institution name text
 
-        #About_window.mainloop()  #Displays the about window
 
-    def Get_input(self):  #Get username and password and returns it
+    def Get_input(self): #get username and password and returns it
         Username_input = self.Username_box.get()
         Password_input = self.Password_box.get()
         return Username_input, Password_input
 
-    def Verify_account(self, username, password):  #Check if username and password is correct
+    def Verify_account(self, username, password): #check if username and password is correct
         return self.user_mgr.Verify_account(username, password)
 
     def update_status_button(self):
@@ -682,16 +656,6 @@ class PacemakerGUI:
             self.Status = self.serial_monitor.Status
             self.Status_button.config(text=self.Status)
 
-            '''
-      
-            # Enable or disable save button based on connection
-            if self.Status == "Connected":
-                self.save_button.config(state="normal")
-            else:
-                self.save_button.config(state="disabled")
-
-            '''
-
         #schedule again
         try:
             self.root.after(100, self.update_status_button)
@@ -700,14 +664,14 @@ class PacemakerGUI:
             pass
         
     def Read_Pacemaker(self):
-        self.Read_window = Toplevel()  #Initiates window
+        self.Read_window = Toplevel() #opens a new window
         self.Read_window.geometry("300x380")
-        self.Read_window.title("Pacemaker_Data")  #Sets title
+        self.Read_window.title("Pacemaker_Data") #sets title
 
-        # reads
+        #reads
         values = self.serial_monitor.Read_Device_Values()
 
-        # Prepare display values
+        #prepare display values
         if values is None:
             display_values = {
                 "Lower Rate Limit": "?",
@@ -747,8 +711,8 @@ class PacemakerGUI:
             self.actual_mode = "AAIR"
         else:
             self.actual_mode = "?"
+        
 
-            
         self.lrl_Label = Label(self.Read_window, text="Lower Rate Limit: " + display_values["Lower Rate Limit"], font=('Arial', 14), fg='black', bg="white")  #Sets text settings
         self.lrl_Label.place(x=10, y=10)  
 
@@ -785,80 +749,64 @@ class PacemakerGUI:
 
     def Successful_login(self):  #Gives access to my account page
 
-        self.Window.destroy();  #Close main window
-        self.root = tk.Tk()  #Open new window
+        self.Window.destroy(); #closes the login window
+        self.root = tk.Tk() #opens a new window
         self.root.title("My Account")
         self.root.geometry("1080x1080")
-        self.root.config(background="#CBC3E3")  #Sets colour of background
-        
+        self.root.config(background="#CBC3E3") #sets colour of background
 
-        ######################## Fonts ###########################
-        
-        self.font_size = 14  # default size
-        self.font_family = "Arial"
+        #Fonts
+        self.font_size = 14  #default size
+        self.font_family = "Arial" #default font
 
-        # Create a font object for labels, buttons, and entries
-        self.global_font = font.Font(family=self.font_family, size=self.font_size)
+        self.global_font = font.Font(family=self.font_family, size=self.font_size) #creates a font object for labels, buttons, and entries
 
-        increase_btn = Button(self.root, text="A+", command=self.increase_font, font=self.global_font)
+        increase_btn = Button(self.root, text="A+", command=self.increase_font, font=self.global_font) #increase font
         increase_btn.place(x=870, y=20)
 
-        decrease_btn = Button(self.root, text="A-", command=self.decrease_font, font=self.global_font)
+        decrease_btn = Button(self.root, text="A-", command=self.decrease_font, font=self.global_font)#decreases font
         decrease_btn.place(x=930, y=20)
 
-        contrast_btn = Button(self.root, text="Toggle Contrast", command=self.toggle_contrast_logged_in, font=self.global_font)
+        contrast_btn = Button(self.root, text="Toggle Contrast", command=self.toggle_contrast_logged_in, font=self.global_font) #toggles contrast
         contrast_btn.place(x=650, y=20)
 
+        About_button = Button(self.root, text="About", font=self.global_font, fg='black', bg="white") #sets text settings
+        About_button.place(x=15, y=15) #displays about button
+        About_button.config(command=self.About) #sets button to about function
 
-        ######################## Fonts ###########################
-
-        About_button = Button(self.root, text="About", font=self.global_font, fg='black', bg="white")  #Sets text settings
-        About_button.place(x=15, y=15)  #Displays about button
-        About_button.config(command=self.About)  #Sets button to about function
-
-        Quit_button = Button(self.root, text="Quit", font=self.global_font, fg='black', bg="white")  #Sets text settings
-        Quit_button.place(x=1000, y=20)  #Displays quit button
-        Quit_button.config(command=self.Quit2)  #Sets button to quit function
-
-        # Status button
-        self.Status_button = Button(self.root, text=self.Status, font=self.global_font, fg='black', bg="white")
+        Quit_button = Button(self.root, text="Quit", font=self.global_font, fg='black', bg="white") #sets text settings
+        Quit_button.place(x=1000, y=20) #displays quit button
+        Quit_button.config(command=self.Quit2) #sets button to quit function
+        
+        self.Status_button = Button(self.root, text=self.Status, font=self.global_font, fg='black', bg="white") #status button
         self.Status_button.place(x=15, y=725)
 
-
-
-        # Build mode selector and sliders
         self.combo_box_create()  #makes the drop-down menu to choose mode
         self.initializes_sliders()  #makes all the sliders
 
-        self.param_mgr.load_parameters()
-        self.combo_box.set(self.param_mgr.Mode[1])
+        self.param_mgr.load_parameters() #loads last saved values into sliders
+        self.combo_box.set(self.param_mgr.Mode[1]) #set combo box to last saved mode
         self.select_mode(self.param_mgr.Mode[1]) #sets the starting mode (AOO)
-
-        #self.sync_sliders() # get info from local file and set the sliders to it
-
         
-        self.update_temp_values() #keeps updating the values in the slides
+        self.update_temp_values() #keeps updating the values in the sliders
 
-
-
-        self.save_button = Button(self.root, text="Save Parameters", command=self.save_parameters, font=self.global_font)
+        self.save_button = Button(self.root, text="Save Parameters", command=self.save_parameters, font=self.global_font) #save button
         self.save_button.place(x=450, y=300)
 
-        #Read Button
-        self.Read_button = Button(self.root, text="Read Pacemaker", font=self.global_font)
+        self.Read_button = Button(self.root, text="Read Pacemaker", font=self.global_font) #read pacemaker button
         self.Read_button.place(x=450, y=350)
-        self.Read_button.config(command=self.Read_Pacemaker)  #Sets button to quit function
+        self.Read_button.config(command=self.Read_Pacemaker)
 
-        temp_report_button = Button(self.root, text="Temporary Report", command=lambda: self.export_report("Temporary"), font=self.global_font)
+        temp_report_button = Button(self.root, text="Temporary Report", command=lambda: self.export_report("Temporary"), font=self.global_font) #temporary report button
         temp_report_button.place(x=450, y=400)
 
-        Bradycardia_report_button = Button(self.root, text="Bradycardia Report", command=lambda: self.export_report("Bradycardia"), font=self.global_font)
+        Bradycardia_report_button = Button(self.root, text="Bradycardia Report", command=lambda: self.export_report("Bradycardia"), font=self.global_font) # bradycardia report button
         Bradycardia_report_button.place(x=450, y=450)
 
-        self.graph_button = Button(self.root, text="View Egram Graphs", command=self.open_graph_window, font=self.global_font)
+        self.graph_button = Button(self.root, text="View Egram Graphs", command=self.open_graph_window, font=self.global_font)#egram graph button
         self.graph_button.place(x=450, y=500)
 
-        self.update_status_button()
+        self.update_status_button() #keeps the status button updated
 
     
     def open_graph_window(self):
@@ -926,103 +874,104 @@ class PacemakerGUI:
 
     def combo_box_create(self):  #function to make dropdown menu
         self.root.title("Modes")
-        self.label = tk.Label(self.root, text="Selected Mode: ", font=self.global_font, fg='black')
+        self.label = tk.Label(self.root, text="Selected Mode: ", font=self.global_font, fg='black') #label to show current mode
         self.label.place(x=400, y=90)
 
         self.combo_box = ttk.Combobox(self.root, values=self.param_mgr.Modes, state='readonly', font=self.global_font)
         self.combo_box.place(x=400, y=130)
 
         self.combo_box.set("AOO")  #default state
-        self.combo_box.bind("<<ComboboxSelected>>", self.select_mode)
+        self.combo_box.bind("<<ComboboxSelected>>", self.select_mode) #bind selection change to update sliders based on selected mode
 
-    def select_mode(self, event):  #updates sliders - according to mode
-
+    def select_mode(self, event): #updates sliders - according to mode
 
         selected_mode = None
         
         try:
             #if called from bind, event will be passed; get current combo value
-            selected_mode = self.combo_box.get()
+            selected_mode = self.combo_box.get() #get currently selected mode
         except Exception:
-            #If called directly with a mode (as in Successful_login), event will be a string
+            #If called directly with a mode event will be a string
             if isinstance(event, str):
                 selected_mode = event
-            else:
+            else: #use last known temporary mode
                 selected_mode = self.param_mgr.Mode[0]
 
-        self.label.config(text="Selected Mode: " + selected_mode)
+        self.label.config(text="Selected Mode: " + selected_mode) #update label to show currently selected mode
 
-        self.root.focus()  # or self.label.focus_set()
+        self.root.focus() #ensure window focus
 
         allowed = self.param_mgr.mode_parameters[selected_mode]  #get the parameters that are relevent to the mode
 
-        for param, (scale, entry, var, toggle, toggle_var) in self.sliders.items():
+        for param, (scale, entry, var, toggle, toggle_var) in self.sliders.items(): #enable sliders for allowed parameters, disable for others
 
             
             if param in allowed:  #if the parameter is in the current mode make available, else no
                 scale.config(state="normal")
                 entry.config(state="normal")
+
+                saved_toggle = self.param_mgr.parameter_values[param][5]
+
                 if toggle:
-                    toggle_var.set(False)
-                    toggle.config(state="normal")
+                    toggle_var.set(saved_toggle) #set checkbox state
+                    toggle.config(state="normal") #make checkbox clickable
+                    
+                    if saved_toggle: #true = OFF
+                        scale.config(state="disabled")
+                        entry.config(state="disabled")
+                        
+                    else:  #false = ON
+                        scale.config(state="normal")
+                        entry.config(state="normal")
             else:
+                #disable sliders and entries for parameters not allowed in this mode
                 scale.config(state="disabled")
                 entry.config(state="disabled")
                 if toggle:
-                    toggle_var.set(True)
+                    toggle_var.set(True)  # toggle OFF for disabled parameters
                     toggle.config(state="disabled")
 
-    def create_slider_with_entry(self, parent, label_text, from_, to, x, y, initial, has_toggle=False):  #can type in entry for slider
-        var = tk.DoubleVar(value=initial)  #creates a double int and initializes it to nominal value
+                        
 
+    def create_slider_with_entry(self, parent, label_text, from_, to, x, y, initial, has_toggle=False):
+        
+        var = tk.DoubleVar(value=initial) #creates a double int and initializes it to nominal value
 
-        tk.Label(parent, text=label_text, font=self.global_font).place(x=x, y=y-10)  #puts parameter name above the slider
+        tk.Label(parent, text=label_text, font=self.global_font).place(x=x, y=y-10) #puts parameter name above the slider
 
-        if label_text == "Lower Rate Limit" or label_text == "Upper Rate Limit":
-            scale = tk.Scale(parent, from_=from_, to=to, orient='horizontal', resolution=5, variable=var, showvalue=False, length=150)
-            
-
-        elif label_text == "Atrial Amplitude" or label_text == "Ventricular Amplitude" or label_text == "Atrial Sensitivity" or label_text == "Ventricular Sensitivity":
+        if label_text == "Atrial Amplitude" or label_text == "Ventricular Amplitude" or label_text == "Atrial Sensitivity" or label_text == "Ventricular Sensitivity":
             scale = tk.Scale(parent, from_=from_, to=to, orient='horizontal', resolution=0.1, variable=var, showvalue=False, length=150)
 
         elif label_text == "Atrial Pulse Width" or label_text == "Ventricular Pulse Width":
             scale = tk.Scale(parent, from_=from_, to=to, orient='horizontal', resolution=1, variable=var, showvalue=False, length=150)
 
-
         else:
-            scale = tk.Scale(parent, from_=from_, to=to, orient='horizontal', resolution=10, variable=var, showvalue=False, length=150)
-            
+            scale = tk.Scale(parent, from_=from_, to=to, orient='horizontal', resolution=0.01, variable=var, showvalue=False, length=150)
             
         # resolution - step size of decimal
-        # variable=var --> scale widget is linked to var, meaning moving the slider updates var automatically
-        # hides the default value display
-        # pixel length of the slider
-        scale.place(x=x, y=y + 20)
+        # variable=var - scale widget is linked to var, meaning moving the slider updates var automatically
+        # length - of the slider
+        
+        scale.place(x=x, y=y + 20) #place slider on window
 
         #creates the box to type into
         entry = tk.Entry(parent, width=6, font=self.global_font)
         entry.place(x=x + 180, y=y + 30)
-        entry.insert(0, str(initial))  #show the inital value
-
-        entry.is_slider_related = True
-        
+        entry.insert(0, str(initial)) #show the inital value
 
         #shows min and max values of the sliders
         min_label = tk.Label(parent, text=str(from_), font=self.global_font)
-        min_label.place(x=x, y=y+40)  # min
+        min_label.place(x=x, y=y+40) #min
         
         max_label = tk.Label(parent, text=str(to), font=self.global_font)
-        max_label.place(x=x + 130, y=y+40)  # max
-
-        min_label.is_slider_related = True
-        max_label.is_slider_related = True
+        max_label.place(x=x + 130, y=y+40) #max
 
         #when user types number into box
         def update_from_entry(event):
             try:
-                val = float(entry.get())  #try coverting the text to number
-                if from_ <= val <= to:  #can only be within the range
-                    var.set(val)  #update value
+                val = float(entry.get()) #try coverting the text to number
+                if from_ <= val <= to: #can only be within the range
+                    var.set(val) #update value
                 else:
                     print("Error")
 
@@ -1034,26 +983,25 @@ class PacemakerGUI:
         entry.bind("<FocusOut>", update_from_entry)
 
         #when slider moves - update box to show current value
-        def update_from_scale(*args):  #called whenever the slider's value changes
+        def update_from_scale(*args): #called whenever the slider's value changes
             entry.delete(0, tk.END)  #clears entry box
-            entry.insert(0, str(round(var.get(), 2)))  #inserts new number to 2 decimal places
+            entry.insert(0, str(round(var.get(), 2))) #inserts new number to 2 decimal places
 
         var.trace_add("write", update_from_scale)  #when sliders value changes - call function to update box
 
-        
+
         if has_toggle:
-            toggle_var = tk.BooleanVar(value=False)# True = slider enabled
-            toggle = tk.Checkbutton(parent, text="Off", variable=toggle_var, font=self.global_font)
+            toggle_var = tk.BooleanVar(value=False) #true means slider disabled
+            toggle = tk.Checkbutton(parent, text="Off", variable=toggle_var, font=self.global_font) #when this is checked/unchecked it toggle the Off state
             toggle.place(x=x-70, y=y + 20)
+            
 
-        
-
-            def toggle_slider():
-                if toggle_var.get():
+            def toggle_slider(): #enables/disables slider based on toggle state
+                if toggle_var.get():#if true - disable 
                     scale.config(state="disabled")
                     entry.config(state="disabled")
                     
-                else:
+                else: #if false - enable
                     scale.config(state="normal")
                     entry.config(state="normal")
 
@@ -1064,13 +1012,12 @@ class PacemakerGUI:
             toggle = None
             toggle_var = None
 
-
         
-        return scale, entry, var, toggle, toggle_var  #return scale, entry box and the shared value
+        return scale, entry, var, toggle, toggle_var  #return scale, entry box, shared value, toggle state
 
     def initializes_sliders(self):  #initializes all the sliders
 
-        self.sliders = {}
+        self.sliders = {} #to store parameters
 
         # (parent, label, min value, max value, x pos, y pos, nominal value)
         self.sliders["Lower Rate Limit"] = self.create_slider_with_entry(self.root, "Lower Rate Limit", 30, 180, 150, 150, 60)
@@ -1085,66 +1032,62 @@ class PacemakerGUI:
         self.sliders["ARP"] = self.create_slider_with_entry(self.root, "ARP", 150, 500, 710, 450, 250)
         self.sliders["Ventricular Sensitivity"] = self.create_slider_with_entry(self.root, "Ventricular Sensitivity", 0, 5, 710, 550, 3.75) #new
 
+        # Restore saved values from JSON
+        for param, (scale, entry, var, toggle, toggle_var) in self.sliders.items():
+            # Set slider to saved permanent value
+            saved_value = self.param_mgr.parameter_values[param][4]  # permanent value
+            var.set(saved_value)
+            entry.delete(0, tk.END)
+            entry.insert(0, str(saved_value))
 
+            # Set toggle checkbox to saved state
+            if toggle:
+                saved_toggle = self.param_mgr.parameter_values[param][5]  # saved toggle
+                toggle_var.set(saved_toggle)
+                # Ensure slider/enabled state matches toggle
+                if saved_toggle:
+                    scale.config(state="disabled")
+                    entry.config(state="disabled")
+                else:
+                    scale.config(state="normal")
+                    entry.config(state="normal")
+
+
+        
 
 
     def update_temp_values(self):
 
-        for param, (scale, entry, var, toggle, toggle_var) in self.sliders.items():
-            self.param_mgr.parameter_values[param][3] = var.get()  # only store temp value locally
+        for param, (scale, entry, var, toggle, toggle_var) in self.sliders.items(): #loops through all the sliders
+            self.param_mgr.parameter_values[param][3] = var.get()  #gets current slider value and put it in temp place
 
-        self.param_mgr.Mode[0] = self.combo_box.get()
+        self.param_mgr.Mode[0] = self.combo_box.get() #update current slider value based on current combobox seleection
 
         try:
-            self.root.after(500, self.update_temp_values)
+            self.root.after(500, self.update_temp_values) #continuously updates temp values
         except Exception:
             pass
         
 
     def save_parameters(self):
-        # Copy temp values to permanent
+        
         for param in self.param_mgr.parameter_values:
-            self.param_mgr.parameter_values[param][4] = self.param_mgr.parameter_values[param][3]
+            self.param_mgr.parameter_values[param][4] = self.param_mgr.parameter_values[param][3] #put temp values into permanent place
+
             if param in self.sliders:
                 scale, entry, var, toggle, toggle_var = self.sliders[param]
-                if toggle:
-                    self.param_mgr.parameter_values[param][5] = toggle_var.get()
+                if toggle: #if toggle exists for parameter
+                    print(f"Saving toggle for {param}: {toggle_var.get()}")
+                    self.param_mgr.parameter_values[param][5] = toggle_var.get() #get state and stores it
 
-        # Save mode
-        self.param_mgr.Mode[1] = self.combo_box.get()
+        self.param_mgr.Mode[1] = self.combo_box.get() #save currenly selected mode
 
-        # Write to JSON
-        self.param_mgr.save_parameters_perm()
+ 
+        self.param_mgr.save_parameters_perm() #write parameters to JSON file
 
-        # Write to Pacemaker if connected
-        if self.serial_monitor.Status == "Connected":
+ 
+        if self.serial_monitor.Status == "Connected": #if pacemaker connected - save values to pacemaker
             self.serial_monitor.Write_Serial(self.param_mgr)
-################## Pacemaker Stuff #############################
-
-    '''
-
-    def sync_sliders(self):
-        """
-        Sync sliders from parameters.json only.
-        Writing to the device is handled separately by save_parameters().
-        """
-        # Load permanent values from the ParameterManager
-        for param, vals in self.param_mgr.parameter_values.items():
-            temp_val = vals[4]  # permanent value
-            if param in self.sliders:
-                scale, entry, var, toggle, toggle_var = self.sliders[param]
-                var.set(temp_val)
-                # Restore toggle state if applicable
-                if toggle_var is not None:
-                    toggle_var.set(vals[5])
-
-    '''
-
-
-    
-
-
-
 
 
 
@@ -1258,8 +1201,6 @@ class PacemakerGUI:
     def _create_login_widgets(self):
         # Labels
 
-
-
         self.font_size = 14
         self.font_family = "Arial"
         self.global_font = font.Font(family=self.font_family, size=self.font_size)
@@ -1272,8 +1213,6 @@ class PacemakerGUI:
 
         toggle_btn = Button(self.Window, text="Toggle Contrast", command=self.toggle_contrast, font=self.global_font)
         toggle_btn.place(x=650, y=20)
-
-
         
         Username_label = Label(self.Window, text="Username", font=self.global_font, fg='black', bg="#CBC3E3")
         Username_label.place(x=345, y=500)
@@ -1317,7 +1256,7 @@ class PacemakerGUI:
 
     def increase_font(self):
 
-        if self.font_size < 18:
+        if self.font_size < 18: #prevent it from becoming to big
             self.font_size += 2  # increase size by 2
             self.global_font.config(size=self.font_size)
 
@@ -1328,66 +1267,61 @@ class PacemakerGUI:
             self.global_font.config(size=self.font_size)
 
 
-
-    def toggle_contrast(self):
+    def toggle_contrast(self): #for login-in window
         self.high_contrast = not self.high_contrast
         bg = "black" if self.high_contrast else "#CBC3E3"
         fg = "white" if self.high_contrast else "black"
         
-        # Update window background
-        self.Window.config(bg=bg)
         
-        # Update all children widgets
-        for widget in self.Window.winfo_children():
+        self.Window.config(bg=bg) # update window background
+        
+        
+        for widget in self.Window.winfo_children(): #update all children widgets
             if isinstance(widget, tk.Label):
                 widget.config(bg=bg, fg=fg)
             elif isinstance(widget, tk.Entry):
-                widget.config(bg="white", fg="black")  # keep entries white background and black text
+                widget.config(bg="white", fg="black") #keep entries white background and black text
 
 
-    def toggle_contrast_logged_in(self):
+    def toggle_contrast_logged_in(self): #for logged-in window
 
-        # Toggle contrast state
-        self.high_contrast = not getattr(self, "high_contrast", False)
+        self.high_contrast = not getattr(self, "high_contrast", False) #toggle contrast state
 
-        # Color scheme
+        #color scheme
         bg_color = "black" if self.high_contrast else "#CBC3E3"
         fg_color = "white" if self.high_contrast else "black"
         entry_bg = "black" if self.high_contrast else "white"
         entry_fg = "white" if self.high_contrast else "black"
 
-        # Set main window background
-        self.root.config(bg=bg_color)
+        self.root.config(bg=bg_color) #set main window background
 
         def apply_contrast(widget):
-            """Apply contrast mode to widgets, skipping slider-related objects."""
 
-            # Skip widgets that are part of sliders
+            #skip widgets that are part of sliders
             if hasattr(widget, "is_slider_related") and widget.is_slider_related:
                 return
 
             try:
-                # Normal Entry widgets (that aren't slider entries)
+                #normal Entry widgets (that aren't slider entries)
                 if isinstance(widget, tk.Entry):
                     widget.config(bg=entry_bg, fg=entry_fg, insertbackground=fg_color)
 
-                # Skip ALL Scale widgets (sliders)
+                #skip all Scale widgets (sliders)
                 elif isinstance(widget, tk.Scale):
                     return
 
-                # Labels and Buttons
                 elif isinstance(widget, tk.Button):
                     return #skips buttons
 
-                # Frame or container: process children
+                #frame or container: process children
                 if hasattr(widget, "winfo_children"):
                     for child in widget.winfo_children():
                         apply_contrast(child)
 
             except tk.TclError:
-                pass  # Some widgets don't support bg/fg; ignore them
+                pass
 
-        # Apply to all children of root
+        #apply to all children of root
         for widget in self.root.winfo_children():
             apply_contrast(widget)
 
