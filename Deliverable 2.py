@@ -1,4 +1,3 @@
-
 from tkinter import *
 import tkinter as tk
 from tkinter import ttk
@@ -62,6 +61,11 @@ Ventricular Sensitivity**           [0, 0, 5, 0, 0]                       0.1
 *adjusted for deliverable 2
 **added for deliverable 2
 
+AOO MODE 1 0 - STANDARD 1 - RATE ADAPTIVE - R
+VOO MODE 2
+VVI MODE 3
+AAI MODE 4
+
 '''
 
 
@@ -78,6 +82,7 @@ class SerialMonitor:
         self.ventricular_pw = "?"
         self.vrp = "?"
         self.arp = "?"
+        self.mode = "?"
         
         self.last_port = None  # Stores last connection
         self.Status = "Disconnected"  # Default status is disconnected
@@ -185,7 +190,7 @@ class SerialMonitor:
         except serial.SerialException as e:
             print(f"Serial Port Error: {e}")
         
-
+    """
     def Read_Request(self, param_mgr=None): # NOT USED RIGHT NOW
         pm = param_mgr or self.param_mgr  # <-- default to stored reference
         if pm is None:
@@ -201,6 +206,7 @@ class SerialMonitor:
             ser.close()
         except serial.SerialException as e:
             print(f"Serial Port Error: {e}")
+    """
 
     def Packet_Serial(self, function_code, param_mgr=None):
         pm = param_mgr or self.param_mgr
@@ -221,11 +227,38 @@ class SerialMonitor:
         self.ARP = pm.parameter_values["ARP"][4]
         self.Atrial_Sensitivity    = pm.parameter_values["Atrial Sensitivity"][4]
         self.Ventricular_Sensitivity = pm.parameter_values["Ventricular Sensitivity"][4]
+        
+        self.actual_mode = pm.Mode[1]
+        
+        if self.actual_mode = "AOO":
+            self.mode = 1
+            self.adaptive_mode = 0
+        elif self.actual_mode = "AOOR":
+            self.mode = 1
+            self.adaptive_mode = 1
+        elif self.actual_mode = "VOO":
+            self.mode = 2
+            self.adaptive_mode = 0
+        elif self.actual_mode = "VOOR":
+            self.mode = 2
+            self.adaptive_mode = 1
+        elif self.actual_mode = "VVI":
+            self.mode = 3
+            self.adaptive_mode = 0
+        elif self.actual_mode = "VVIR":
+            self.mode = 3
+            self.adaptive_mode = 1
+        elif self.actual_mode = "AAI":
+            self.mode = 4
+            self.adaptive_mode = 0
+        elif self.actual_mode = "AAIR":
+            self.mode = 4
+            self.adaptive_mode = 1
 
 
         # Build packet with doubles, to match the 66-byte expectation and your unpack format
         self.packet = struct.pack(
-            "<BBdddddddddd",
+            "<BBdddddddddddd",
             int(self.Sync),
             int(self.FN_Code),
             float(self.Lower_Rate_Limit),
@@ -237,7 +270,9 @@ class SerialMonitor:
             float(self.VRP),
             float(self.ARP),
             float(self.Atrial_Sensitivity),
-            float(self.Ventricular_Sensitivity)
+            float(self.Ventricular_Sensitivity),
+            float(self.mode),
+            float(self.adpative_mode)
         )
         print(f"Packet ({len(self.packet)} bytes):", " ".join(f"{b:02X}" for b in self.packet))
 
@@ -261,16 +296,16 @@ class SerialMonitor:
             ser.flush()
             #time.sleep(0.5)
            
-            #Expect 96 bytes: 12 doubles => 10 params + atrial data + ventricle data
-            response = ser.read(96)
+            #Expect 96 bytes: 14 doubles => 10 params + atrial data + ventricle data
+            response = ser.read(112)
             ser.close()
-            if len(response) == 96:      
-                unpacked = struct.unpack("<dddddddddddd", response)
+            if len(response) == 112:      
+                unpacked = struct.unpack("<dddddddddddddd", response)
                 (
                     self.lrl, self.url, self.atrial_amp, self.atrial_pw,
                     self.ventricular_amp, self.ventricular_pw, self.vrp, self.arp,
                     self.atrial_sens, self.ventricular_sens,
-                    self.atrial_data, self.ventricle_data
+                    self.atrial_data, self.ventricle_data, self.mode, self.adapt_data
                 ) = unpacked
 
                 return {
@@ -285,7 +320,9 @@ class SerialMonitor:
                     "Atrial Sensitivity": self.atrial_sens,
                     "Ventricular Sensitivity": self.ventricular_sens,
                     "Atrial Data": self.atrial_data,
-                    "Ventricle Data": self.ventricle_data
+                    "Ventricle Data": self.ventricle_data,
+                    "Mode": self.mode,
+                    "Adaptive Data": self.adapt_data
                 }
             else:
                 print(f"Read_Device_Values: Incomplete response ({len(response)} bytes).")
@@ -655,11 +692,35 @@ class PacemakerGUI:
                 "ARP": "?",
                 "Atrial Sensitivity": "?",
                 "Ventricular Sensitivity": "?",
+                "Mode": "?",
+                "Adaptive Data": "?"
             }
         else:
             display_values = {k: f"{v:.2f}" for k, v in values.items()}
 
+        mode = display_values["Mode"]
+        adaptive = display_values["Adaptive Data"]
 
+        if mode == 1 and adaptive == 0:
+            self.actual_mode = "AOO"
+        elif mode == 1 and adaptive == 1:
+            self.actual_mode = "AOOR"
+        elif mode == 2 and adaptive == 0:
+            self.actual_mode = "VOO"
+        elif mode == 2 and adaptive == 1:
+            self.actual_mode = "VOOR"
+        elif mode == 3 and adaptive == 0:
+            self.actual_mode = "VVI"
+        elif mode == 3 and adaptive == 1:
+            self.actual_mode = "VVIR"
+        elif mode == 4 and adaptive == 0:
+            self.actual_mode = "AAI"
+        elif mode == 4 and adaptive == 1:
+            self.actual_mode = "AAIR"
+        else:
+            self.actual_mode = "?"
+
+            
         self.lrl_Label = Label(self.Read_window, text="Lower Rate Limit: " + display_values["Lower Rate Limit"], font=('Arial', 14), fg='black', bg="white")  #Sets text settings
         self.lrl_Label.place(x=10, y=10)  
 
@@ -688,7 +749,10 @@ class PacemakerGUI:
         self.arp_Label.place(x=10, y=190) 
 
         self.arp_Label = Label(self.Read_window, text="Ventricular Sensitivity: " + display_values["Ventricular Sensitivity"], font=('Arial', 14), fg='black', bg="white")  #Sets text settings
-        self.arp_Label.place(x=10, y=220) 
+        self.arp_Label.place(x=10, y=220)
+
+        self.mode_Label = Label(self.Read_window, text="Mode: " + self.actual_mode, font=('Arial', 14), fg='black', bg="white")  #Sets text settings
+        self.mode_Label.place(x=10, y=250)  
 
 
     def Successful_login(self):  #Gives access to my account page
