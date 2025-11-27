@@ -589,11 +589,20 @@ class EgramViewer(tk.Toplevel):
         self.canvas.draw()
 
     def update_graph(self, new_time, new_voltageA=None, new_voltageV=None):
-        self.time_data.append(new_time)
-        if new_voltageA is not None:
-            self.voltageA_data.append(new_voltageA)
-        if new_voltageV is not None:
-            self.voltageV_data.append(new_voltageV)
+        if isinstance(new_time, list):
+            self.time_data.extend(new_time)
+            if new_voltageA is not None:
+                self.voltageA_data.extend(new_voltageA)
+            if new_voltageV is not None:
+                self.voltageV_data.extend(new_voltageV)
+        else:
+            # Single sample
+            self.time_data.append(new_time)
+            if new_voltageA is not None:
+                self.voltageA_data.append(new_voltageA)
+            if new_voltageV is not None:
+                self.voltageV_data.append(new_voltageV)
+        
         self.draw_graphs()
 
 
@@ -875,17 +884,30 @@ class PacemakerGUI:
         self.graph_loop_running = True
         start_time = time.time()
 
-        # loop function
+        batch_size = 51  # update graph every 10 samples (24 buffer, 100ms period works)
+        buffer_time = []
+        buffer_atr = []
+        buffer_vent = []
+
         def poll_and_update():
             if not self.graph_loop_running:
                 return
             vals = self.serial_monitor.Read_Device_Values()
             if vals is not None:
                 elapsed_ms = (time.time() - start_time) * 1000
-                a = vals.get("Atrial Data")
-                v = vals.get("Ventricle Data")
-                graph_window.update_graph(elapsed_ms, a, v)
-            self.root.after(500, poll_and_update) # ADJUST THE TIMING ON THIS???
+                a = -5*vals.get("Atrial Data") + 5000
+                v = -5*vals.get("Ventricle Data") + 5000
+                buffer_time.append(elapsed_ms)
+                buffer_atr.append(a)
+                buffer_vent.append(v)
+
+                # Update graph only every batch_size samples
+                if len(buffer_time) >= batch_size:
+                    graph_window.update_graph(buffer_time, buffer_atr, buffer_vent)
+                    buffer_time.clear()
+                    buffer_atr.clear()
+                    buffer_vent.clear()
+            self.root.after(10, poll_and_update)
 
         poll_and_update()
 
