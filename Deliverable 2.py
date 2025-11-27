@@ -1,3 +1,4 @@
+
 from tkinter import *
 import tkinter as tk
 from tkinter import ttk
@@ -219,9 +220,27 @@ class SerialMonitor:
 
         self.Lower_Rate_Limit = pm.parameter_values["Lower Rate Limit"][4]
         self.Upper_Rate_Limit = pm.parameter_values["Upper Rate Limit"][4]
-        self.Atrial_Amplitude = pm.parameter_values["Atrial Amplitude"][4]
+
+        ################################################################### Off converts to 0 for pacemaker
+
+        if pm.parameter_values["Atrial Amplitude"][5]:
+            self.Atrial_Amplitude = 0.0
+
+        else:
+            self.Atrial_Amplitude = pm.parameter_values["Atrial Amplitude"][4]
+
+            
         self.Atrial_Pulse_Width = pm.parameter_values["Atrial Pulse Width"][4]
-        self.Ventricular_Amplitude = pm.parameter_values["Ventricular Amplitude"][4]
+
+        if pm.parameter_values["Ventricular Amplitude"][5]:
+            self.Ventricular_Amplitude = 0.0
+
+        else:
+            self.Ventricular_Amplitude = pm.parameter_values["Ventricular Amplitude"][4]
+
+        ############################################################################
+
+
         self.Ventricular_Pulse_Width = pm.parameter_values["Ventricular Pulse Width"][4]
         self.VRP = pm.parameter_values["VRP"][4]
         self.ARP = pm.parameter_values["ARP"][4]
@@ -230,28 +249,28 @@ class SerialMonitor:
         
         self.actual_mode = pm.Mode[1]
         
-        if self.actual_mode = "AOO":
+        if self.actual_mode == "AOO":
             self.mode = 1
             self.adaptive_mode = 0
-        elif self.actual_mode = "AOOR":
+        elif self.actual_mode == "AOOR":
             self.mode = 1
             self.adaptive_mode = 1
-        elif self.actual_mode = "VOO":
+        elif self.actual_mode == "VOO":
             self.mode = 2
             self.adaptive_mode = 0
-        elif self.actual_mode = "VOOR":
+        elif self.actual_mode == "VOOR":
             self.mode = 2
             self.adaptive_mode = 1
-        elif self.actual_mode = "VVI":
+        elif self.actual_mode == "VVI":
             self.mode = 3
             self.adaptive_mode = 0
-        elif self.actual_mode = "VVIR":
+        elif self.actual_mode == "VVIR":
             self.mode = 3
             self.adaptive_mode = 1
-        elif self.actual_mode = "AAI":
+        elif self.actual_mode == "AAI":
             self.mode = 4
             self.adaptive_mode = 0
-        elif self.actual_mode = "AAIR":
+        elif self.actual_mode == "AAIR":
             self.mode = 4
             self.adaptive_mode = 1
 
@@ -806,7 +825,7 @@ class PacemakerGUI:
         self.combo_box.set(self.param_mgr.Mode[1])
         self.select_mode(self.param_mgr.Mode[1]) #sets the starting mode (AOO)
 
-        self.sync_sliders() # get info from local file and set the sliders to it
+        #self.sync_sliders() # get info from local file and set the sliders to it
 
         
         self.update_temp_values() #keeps updating the values in the slides
@@ -1036,13 +1055,13 @@ class PacemakerGUI:
         self.sliders["Upper Rate Limit"] = self.create_slider_with_entry(self.root, "Upper Rate Limit", 50, 200, 150, 250, 120)
         self.sliders["Atrial Amplitude"] = self.create_slider_with_entry(self.root, "Atrial Amplitude", 0.1, 5.0, 150, 350, 5, has_toggle=True)
         self.sliders["Atrial Pulse Width"] = self.create_slider_with_entry(self.root, "Atrial Pulse Width", 1, 30, 150, 450, 1)
-        self.sliders["Atrial Sensitivity"] = self.create_slider_with_entry(self.root, "Atrial Sensitivity", 0, 5, 150, 550, 0) #new
+        self.sliders["Atrial Sensitivity"] = self.create_slider_with_entry(self.root, "Atrial Sensitivity", 0, 5, 150, 550, 4) #new
 
         self.sliders["Ventricular Amplitude"] = self.create_slider_with_entry(self.root, "Ventricular Amplitude", 0.1, 5.0, 710, 150, 5, has_toggle=True)
         self.sliders["Ventricular Pulse Width"] = self.create_slider_with_entry(self.root, "Ventricular Pulse Width", 1, 30, 710, 250, 1)
         self.sliders["VRP"] = self.create_slider_with_entry(self.root, "VRP", 150, 500, 710, 350, 320)
         self.sliders["ARP"] = self.create_slider_with_entry(self.root, "ARP", 150, 500, 710, 450, 250)
-        self.sliders["Ventricular Sensitivity"] = self.create_slider_with_entry(self.root, "Ventricular Sensitivity", 0, 5, 710, 550, 0) #new
+        self.sliders["Ventricular Sensitivity"] = self.create_slider_with_entry(self.root, "Ventricular Sensitivity", 0, 5, 710, 550, 3.75) #new
 
 
 
@@ -1080,6 +1099,8 @@ class PacemakerGUI:
             self.serial_monitor.Write_Serial(self.param_mgr)
 ################## Pacemaker Stuff #############################
 
+    '''
+
     def sync_sliders(self):
         """
         Sync sliders from parameters.json only.
@@ -1094,6 +1115,8 @@ class PacemakerGUI:
                 # Restore toggle state if applicable
                 if toggle_var is not None:
                     toggle_var.set(vals[5])
+
+    '''
 
 
     
