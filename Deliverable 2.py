@@ -1,4 +1,5 @@
 
+
 from tkinter import * #imports Tkiinter GUI classes/functions
 import tkinter as tk 
 from tkinter import ttk #imports some widgets(combobox)
@@ -16,38 +17,6 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import os #used for file path creation 
 from tkinter import font #used to change font sizes
 
-
-
-'''
-Off doesnt work properly doesnt save between uses
-'''
-
-
-'''
-Parameters Name                              Range                     Increment
-
-Lower Rate Limit                    [30, 60, 175, 60, 60]                  5                   
-Upper Rate Limit                    [50, 120, 175, 120, 120]               5                   
-Atrial Amplitude*                   [0.1, 5, 5, 5, 5]                     0.1                  
-Atrial Pulse Width*                 [1, 1, 30, 1, 1]                       1                   
-Ventricular Amplitude*              [0.1, 5, 5, 5, 5]                     0.1                  
-Ventricular Pulse Width*            [1, 30, 1, 1, 1]                       1                   
-VRP                                 [150, 320, 500, 320, 320]              10                  
-ARP                                 [150, 250, 500, 250, 250]              10                  
-Atrial Sensitivity**                [0, 0, 5, 0, 0]                       0.1                  
-Ventricular Sensitivity**           [0, 0, 5, 0, 0]                       0.1                  
-
-
-
-*adjusted for deliverable 2
-**added for deliverable 2
-
-AOO MODE 1 0 - STANDARD 1 - RATE ADAPTIVE - R
-VOO MODE 2
-VVI MODE 3
-AAI MODE 4
-
-'''
 
 ############################## Serial ##############################
 
@@ -911,10 +880,14 @@ class PacemakerGUI:
         
         scale.place(x=x, y=y + 20) #place slider on window
 
+       
+
         #creates the box to type into
         entry = tk.Entry(parent, width=6, font=self.global_font)
         entry.place(x=x + 180, y=y + 30)
         entry.insert(0, str(initial)) #show the inital value
+
+        entry.is_slider_related = True #need this so the buttons dont become weird during contrast
 
         #shows min and max values of the sliders
         min_label = tk.Label(parent, text=str(from_), font=self.global_font)
