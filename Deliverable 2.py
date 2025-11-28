@@ -78,49 +78,6 @@ class SerialMonitor:
         try:
             ser = serial.Serial(port, 115200, timeout=5)  # Connects serial
             print("Connected to", ser.name)
-            '''
-            # Send read request packet
-            if self.param_mgr:
-                self.Packet_Serial(0x22, self.param_mgr)
-                ser.write(self.packet)
-                ser.flush()
-                print("Read request sent successfully.")
-            else:
-                print("Warning: No ParameterManager attached; skipping Read_Request")
-
-            time.sleep(0.5)
-            response = ser.read(64)  # Expect 64 bytes if echo
-            print(f"Received {len(response)} bytes:", response.hex())
-            if len(response) == 64:  # If same bytes sent back
-                unpacked = struct.unpack("<dddddddd", response)  # Unpacks the packet
-                global lrl, url, atrial_amp, atrial_pw, ventricular_amp, ventricular_pw, vrp, arp
-                print("Unpacked:", unpacked)
-                (
-                    lrl,
-                    url,
-                    atrial_amp,
-                    atrial_pw,
-                    ventricular_amp,
-                    ventricular_pw,
-                    vrp,
-                    arp,
-                ) = unpacked
-
-                if self.param_mgr is None:
-                    print("Warning: No ParameterManager attached; cannot write received values")
-                else:
-                    pm = self.param_mgr
-                    pm.parameter_values["Lower Rate Limit"][4] = lrl
-                    pm.parameter_values["Upper Rate Limit"][4] = url
-                    pm.parameter_values["Atrial Amplitude"][4] = atrial_amp
-                    pm.parameter_values["Atrial Pulse Width"][4] = atrial_pw
-                    pm.parameter_values["Ventricular Amplitude"][4] = ventricular_amp
-                    pm.parameter_values["Ventricular Pulse Width"][4] = ventricular_pw
-                    pm.parameter_values["VRP"][4] = vrp
-                    pm.parameter_values["ARP"][4] = arp
-            else:
-                print("Received incomplete packet")
-            '''
             ser.close()
         except serial.SerialException as e:
             print(f"Serial Port Error: {e}")
@@ -170,23 +127,6 @@ class SerialMonitor:
         except serial.SerialException as e:
             print(f"Serial Port Error: {e}")
         
-    """
-    def Read_Request(self, param_mgr=None): # NOT USED RIGHT NOW
-        pm = param_mgr or self.param_mgr  # <-- default to stored reference
-        if pm is None:
-            print("Read_Request: No ParameterManager provided/attached.")
-            return
-        self.Packet_Serial(0x22, pm)
-        try:
-            ser = serial.Serial(self.last_port, 115200, timeout=1)
-            time.sleep(2)
-            ser.write(self.packet)  # Writes packet
-            ser.flush()
-            print("Read request sent successfully.")
-            ser.close()
-        except serial.SerialException as e:
-            print(f"Serial Port Error: {e}")
-    """
 
     def Packet_Serial(self, function_code, param_mgr=None):
         pm = param_mgr or self.param_mgr
@@ -254,7 +194,7 @@ class SerialMonitor:
             self.adaptive_mode = 1
 
 
-        # Build packet with doubles, to match the 66-byte expectation and your unpack format
+        # Build packet
         self.packet = struct.pack(
             "<BBdddddddddddd",
             int(self.Sync),
@@ -270,7 +210,7 @@ class SerialMonitor:
             float(self.Atrial_Sensitivity),
             float(self.Ventricular_Sensitivity),
             float(self.mode),
-            float(self.adpative_mode)
+            float(self.adaptive_mode)
         )
         print(f"Packet ({len(self.packet)} bytes):", " ".join(f"{b:02X}" for b in self.packet))
 
@@ -300,27 +240,37 @@ class SerialMonitor:
             if len(response) == 112:      
                 unpacked = struct.unpack("<dddddddddddddd", response)
                 (
-                    self.lrl, self.url, self.atrial_amp, self.atrial_pw,
-                    self.ventricular_amp, self.ventricular_pw, self.vrp, self.arp,
-                    self.atrial_sens, self.ventricular_sens,
-                    self.atrial_data, self.ventricle_data, self.mode, self.adapt_data
+                    mode,
+                    ventricular_sens,
+                    atrial_sens, 
+                    vrp, 
+                    arp,
+                    ventricular_pw, 
+                    atrial_pw,
+                    ventricular_amp, 
+                    atrial_amp,
+                    url, 
+                    lrl, 
+                    adapt_data,
+                    atrial_data, 
+                    ventricle_data
                 ) = unpacked
 
                 return {
-                    "Lower Rate Limit": self.lrl,
-                    "Upper Rate Limit": self.url,
-                    "Atrial Amplitude": self.atrial_amp,
-                    "Atrial Pulse Width": self.atrial_pw,
-                    "Ventricular Amplitude": self.ventricular_amp,
-                    "Ventricular Pulse Width": self.ventricular_pw,
-                    "VRP": self.vrp,
-                    "ARP": self.arp,
-                    "Atrial Sensitivity": self.atrial_sens,
-                    "Ventricular Sensitivity": self.ventricular_sens,
-                    "Atrial Data": self.atrial_data,
-                    "Ventricle Data": self.ventricle_data,
-                    "Mode": self.mode,
-                    "Adaptive Data": self.adapt_data
+                    "Lower Rate Limit": lrl,
+                    "Upper Rate Limit": url,
+                    "Atrial Amplitude": atrial_amp,
+                    "Atrial Pulse Width": atrial_pw,
+                    "Ventricular Amplitude": ventricular_amp,
+                    "Ventricular Pulse Width": ventricular_pw,
+                    "VRP": vrp,
+                    "ARP": arp,
+                    "Atrial Sensitivity": atrial_sens,
+                    "Ventricular Sensitivity": ventricular_sens,
+                    "Atrial Data": atrial_data,
+                    "Ventricle Data": ventricle_data,
+                    "Mode": mode,
+                    "Adaptive Data": adapt_data
                 }
             else:
                 print(f"Read_Device_Values: Incomplete response ({len(response)} bytes).")
@@ -693,24 +643,31 @@ class PacemakerGUI:
         mode = display_values["Mode"]
         adaptive = display_values["Adaptive Data"]
 
-        if mode == 1 and adaptive == 0:
-            self.actual_mode = "AOO"
-        elif mode == 1 and adaptive == 1:
-            self.actual_mode = "AOOR"
-        elif mode == 2 and adaptive == 0:
-            self.actual_mode = "VOO"
-        elif mode == 2 and adaptive == 1:
-            self.actual_mode = "VOOR"
-        elif mode == 3 and adaptive == 0:
-            self.actual_mode = "VVI"
-        elif mode == 3 and adaptive == 1:
-            self.actual_mode = "VVIR"
-        elif mode == 4 and adaptive == 0:
-            self.actual_mode = "AAI"
-        elif mode == 4 and adaptive == 1:
-            self.actual_mode = "AAIR"
+        if mode == "1.00" and adaptive == "0.00":
+            actual_mode = "AOO"
+        elif mode == "1.00" and adaptive == "1.00":
+            actual_mode = "AOOR"
+        elif mode == "2.00" and adaptive == "0.00":
+            actual_mode = "VOO"
+        elif mode == "2.00" and adaptive == "1.00":
+            actual_mode = "VOOR"
+        elif mode == "3.00" and adaptive == "0.00":
+            actual_mode = "VVI"
+        elif mode == "3.00" and adaptive == "1.00":
+            actual_mode = "VVIR"
+        elif mode == "4.00" and adaptive == "0.00":
+            actual_mode = "AAI"
+        elif mode == "4.00" and adaptive == "1.00":
+            actual_mode = "AAIR"
         else:
-            self.actual_mode = "?"
+            actual_mode = "?"
+
+        if display_values["Atrial Amplitude"] == "0.00":
+            display_values["Atrial Amplitude"] = "Off"
+        
+        if display_values["Ventricular Amplitude"] == "0.00":
+            display_values["Ventricular Amplitude"] = "Off"
+
         
 
         self.lrl_Label = Label(self.Read_window, text="Lower Rate Limit: " + display_values["Lower Rate Limit"], font=('Arial', 14), fg='black', bg="white")  #Sets text settings
@@ -726,25 +683,25 @@ class PacemakerGUI:
         self.atrial_pw_Label.place(x=10, y=100)
 
         self.ventricular_amp_Label = Label(self.Read_window, text="Ventricular Amplitude: " + display_values["Ventricular Amplitude"], font=('Arial', 14), fg='black', bg="white")  #Sets text settings
-        self.ventricular_amp_Label.place(x=10, y=70)
+        self.ventricular_amp_Label.place(x=10, y=130)
 
         self.ventricular_pw_Label = Label(self.Read_window, text="Ventricular Pulse Width: " + display_values["Ventricular Pulse Width"], font=('Arial', 14), fg='black', bg="white")  #Sets text settings
-        self.ventricular_pw_Label.place(x=10, y=100) 
+        self.ventricular_pw_Label.place(x=10, y=160) 
 
         self.vrp_Label = Label(self.Read_window, text="VRP: " + display_values["VRP"], font=('Arial', 14), fg='black', bg="white")  #Sets text settings
-        self.vrp_Label.place(x=10, y=130) 
+        self.vrp_Label.place(x=10, y=190) 
 
         self.vrp_Label = Label(self.Read_window, text="ARP: " + display_values["ARP"], font=('Arial', 14), fg='black', bg="white")  #Sets text settings
-        self.vrp_Label.place(x=10, y=160) 
+        self.vrp_Label.place(x=10, y=220) 
 
         self.arp_Label = Label(self.Read_window, text="Atrial Sensitivity: " + display_values["Atrial Sensitivity"], font=('Arial', 14), fg='black', bg="white")  #Sets text settings
-        self.arp_Label.place(x=10, y=190) 
+        self.arp_Label.place(x=10, y=250) 
 
         self.arp_Label = Label(self.Read_window, text="Ventricular Sensitivity: " + display_values["Ventricular Sensitivity"], font=('Arial', 14), fg='black', bg="white")  #Sets text settings
-        self.arp_Label.place(x=10, y=220)
+        self.arp_Label.place(x=10, y=280)
 
-        self.mode_Label = Label(self.Read_window, text="Mode: " + self.actual_mode, font=('Arial', 14), fg='black', bg="white")  #Sets text settings
-        self.mode_Label.place(x=10, y=250)  
+        self.mode_Label = Label(self.Read_window, text="Mode: " + actual_mode, font=('Arial', 14), fg='black', bg="white")  #Sets text settings
+        self.mode_Label.place(x=10, y=310)  
 
 
     def Successful_login(self):  #Gives access to my account page
@@ -832,7 +789,7 @@ class PacemakerGUI:
         self.graph_loop_running = True
         start_time = time.time()
 
-        batch_size = 51  # update graph every 10 samples (24 buffer, 100ms period works)
+        batch_size = 24#51 for 10ms, 24 for 100ms  # adjust this
         buffer_time = []
         buffer_atr = []
         buffer_vent = []
@@ -843,8 +800,8 @@ class PacemakerGUI:
             vals = self.serial_monitor.Read_Device_Values()
             if vals is not None:
                 elapsed_ms = (time.time() - start_time) * 1000
-                a = -5*vals.get("Atrial Data") + 5000
-                v = -5*vals.get("Ventricle Data") + 5000
+                a = (-5000/0.7)*vals.get("Atrial Data") + 5000
+                v = (-5000/0.7)*vals.get("Ventricle Data") + 5000
                 buffer_time.append(elapsed_ms)
                 buffer_atr.append(a)
                 buffer_vent.append(v)
@@ -855,7 +812,7 @@ class PacemakerGUI:
                     buffer_time.clear()
                     buffer_atr.clear()
                     buffer_vent.clear()
-            self.root.after(10, poll_and_update)
+            self.root.after(100, poll_and_update)
 
         poll_and_update()
 
